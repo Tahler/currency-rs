@@ -1,49 +1,61 @@
-#![crate_type = "lib"]
+﻿#![crate_type = "lib"]
 #![crate_name = "currency"]
-
+ 
 use std::cmp::PartialEq;
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
-
+ 
 use std::ops::Add;
 use std::ops::Sub;
 use std::ops::Mul;
 use std::ops::Div;
-
+ 
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result;
-
+ 
 use std::marker::Copy;
-
+ 
 /// Represents currency through an optional symbol and amount of coin.
 /// 
 /// Each 100 coins results in a banknote. (100 is formatted as 1.00)
 /// The currency will be formatted as such:
-///     Currency('$', 432) ==> "$4.32"
+///     Currency(Some('$'), 432) ==> "$4.32"
 pub struct Currency(pub Option<char>, pub i64);
-
+ 
 impl Currency {
     /// Creates a blank Currency as Currency(None, 0)
-    fn new() -> Currency {
+    /// 
+    /// # Examples 
+    /// 
+    /// ```
+    /// let mut c = Currency::new();
+    /// ```
+    #[inline]
+    #[allow(dead_code)]
+    pub fn new() -> Currency {
         Currency(None, 0)
     }
-
+ 
     /// Parses a string literal and turns it into a currency.
     /// 
     /// Parsing ignores spaces and commas, only taking note of the digits and 
     /// leading sign.
     /// 
     /// # Examples
+    /// ```
     /// Currency::from_string("$4.32") -> Currency(Some('$'), 432)
     /// Currency::from_string("424.44") -> Currency(None, 42444)
     /// Currency::from_string("@12") -> Currency(Some('@'), 1200)
-    ///
+    /// ```
+    /// 
     /// # Failures
     /// Fails to take note of the floating points position.
+    /// ```
     /// Currency::from_string("$42.012) -> Currency(Some('$'), 42012)
     /// Currency::from_string("42.") -> Currency(None, 42)
-    ///
+    /// ```
+    /// 
     /// # Panics
     /// Panics if a number fails to be parsed; this only occurs if the string
     /// argument has no numbers in it.
@@ -52,7 +64,8 @@ impl Currency {
     /// If a decimal point is intended to be marked, always use '.'
     /// A "European style" ',' will be ignored.
     /// String::from_string("€4.32") instead of String::from_string("€4,32")
-    fn from_string(s: &str) -> Currency {
+    #[allow(dead_code)]
+    pub fn from_string(s: &str) -> Currency {
         // Try to find the sign
         let mut sign = None;
         let mut unicode: u8 = s.chars().next().unwrap() as u8;
@@ -62,7 +75,7 @@ impl Currency {
         }
         
         // Find the numbers
-        let mut should_multiply = true; // May later change if a '.' is specified
+        let mut should_multiply = true; // May later change if '.' is specified
         let mut coin_str = String::new();
         for c in s.chars() {
             unicode = c as u8;
@@ -89,22 +102,24 @@ impl Currency {
         Currency(sign, coin)
     }
 }
-
+ 
 /// Overloads the '==' operator for Currency objects.
 /// 
 /// # Panics
 /// Panics if the two comparators are different types of currency, as denoted by
 /// the Currency's symbol.
 impl PartialEq<Currency> for Currency {
+    #[inline]
     fn eq(&self, rhs: &Currency) -> bool {
         self.0 == rhs.0 && self.1 == rhs.1
     }
-
+ 
+    #[inline]
     fn ne(&self, rhs: &Currency) -> bool {
         self.0 != rhs.0 || self.1 != rhs.1
     }
 }
-
+ 
 /// Overloads the order operators for Currency objects.
 /// 
 /// These operators include '<', '<=', '>', and '>='.
@@ -113,6 +128,7 @@ impl PartialEq<Currency> for Currency {
 /// Panics if the two comparators are different types of currency, as denoted by
 /// the Currency's symbol.
 impl PartialOrd<Currency> for Currency {
+    #[inline]
     fn partial_cmp(&self, rhs: &Currency) -> Option<Ordering> {
         if self.0 == rhs.0 {
             if self < rhs { return Some(Ordering::Less) }
@@ -122,21 +138,34 @@ impl PartialOrd<Currency> for Currency {
         None
     }
     
-    // TODO: sign checking here
+    #[inline]
     fn lt(&self, rhs: &Currency) -> bool {
-        self.1 < rhs.1
+        if self.0 == rhs.0 { 
+            self.1 < rhs.1 
+        }
+        else { 
+            panic!("Cannot compare two different types of currency."); 
+        }
     }
+    #[inline]
     fn le(&self, rhs: &Currency) -> bool {
         self < rhs || self == rhs
     }
+    #[inline]
     fn gt(&self, rhs: &Currency) -> bool {
-        self.1 > rhs.1
+        if self.0 == rhs.0 { 
+            self.1 > rhs.1 
+        }
+        else { 
+            panic!("Cannot compare two different types of currency."); 
+        }
     }
+    #[inline]
     fn ge(&self, rhs: &Currency) -> bool {
         self > rhs || self == rhs
     }
 }
-
+ 
 /// Overloads the '+' operator for Currency objects.
 /// 
 /// # Panics
@@ -144,16 +173,17 @@ impl PartialOrd<Currency> for Currency {
 /// Currency's symbol.
 impl Add for Currency {
     type Output = Currency;
-
+ 
+    #[inline]
     fn add(self, rhs: Currency) -> Currency {
         if self.0 == rhs.0 {
             Currency(self.0, self.1 + rhs.1)
         } else {
-            panic!("Cannot do arithmetic on two different types of currency!");
+            panic!("Cannot add two different types of currency!");
         }
     }
 }
-
+ 
 /// Overloads the '-' operator for Currency objects.
 /// 
 /// # Panics
@@ -162,26 +192,28 @@ impl Add for Currency {
 impl Sub for Currency {
     type Output = Currency;
     
+    #[inline]
     fn sub(self, rhs: Currency) -> Currency {
         if self.0 == rhs.0 {
             Currency(self.0, self.1 - rhs.1)
         } else {
-            panic!("Cannot do arithmetic on two different types of currency!");
+            panic!("Cannot subtract two different types of currency!");
         }
     }
 }
-
+ 
 /// Overloads the '*' operator for Currency objects.
 ///
 /// Allows a Currency to be multiplied by an i64.
 impl Mul<i64> for Currency {
     type Output = Currency;
     
+    #[inline]
     fn mul(self, rhs: i64) -> Currency {
         Currency(self.0, self.1 * rhs)
     }
 }
-
+ 
 /// Overloads the '*' operator for i64.
 /// 
 /// Allows an i64 to be multiplied by a Currency.
@@ -189,28 +221,33 @@ impl Mul<i64> for Currency {
 impl Mul<Currency> for i64 {
     type Output = Currency;
     
+    #[inline]
     fn mul(self, rhs: Currency) -> Currency {
         Currency(rhs.0, rhs.1 * self)
     }
 }
-
+ 
 /// Overloads the '/' operator for Currency objects.
 /// 
 /// Allows a Currency to be divided by an i64.
 impl Div<i64> for Currency {
     type Output = Currency;
     
+    #[inline]
     fn div(self, rhs: i64) -> Currency {
         Currency(self.0, self.1 / rhs)
     }
 }
-
+ 
 /// Allows Currencies to be displayed as Strings
 /// 
 /// # Examples
+/// ```
 /// Currency(Some('$'), 1210).to_string() == "$12.10"
 /// Currency(None, 1210.to_string() == "12.10" 
+/// ```
 impl Display for Currency {
+    #[inline]
     fn fmt(&self, f: &mut Formatter) -> Result {
         let decimal = (self.1 / 100).to_string()
             + &('.').to_string()
@@ -221,39 +258,38 @@ impl Display for Currency {
         }
     }
 }
-
+ 
 /// Allows Currencies to be copied, rather than using move semantics.
 impl Copy for Currency { }
 impl Clone for Currency {
-    fn clone(&self) -> Currency {
-        *self
-    }
+    #[inline]
+    fn clone(&self) -> Currency { *self }
 }
-
+ 
 #[test]
 fn eq_works() {
     let a = Currency(Some('$'), 1210);
     let b = Currency(Some('$'), 1210);
     let c = Currency(Some('$'), 1251);
-
+ 
     assert!(a == b);
     assert!(b == b);
     assert!(b == a);
     assert!(a != c);
 }
-
+ 
 #[test]
 fn ord_works() {
     let a = Currency(Some('$'), 1210);
     let b = Currency(Some('$'), 1211);
     let c = Currency(Some('$'), 1311);
     let d = Currency(Some('$'), 1210);
-
+ 
     assert_eq!(a.partial_cmp(&b), Some(Ordering::Less));
     assert_eq!(a.partial_cmp(&c), Some(Ordering::Less));
     assert_eq!(a.partial_cmp(&d), Some(Ordering::Equal));
     assert_eq!(c.partial_cmp(&a), Some(Ordering::Greater));
-
+ 
     assert!(a < b);
     assert!(a < c);
     assert!(a <= a);
@@ -263,7 +299,7 @@ fn ord_works() {
     assert!(a >= a);
     assert!(c >= a);
 }
-
+ 
 #[test]
 fn arithmetic_works() {
     let x = Currency(Some('$'), 1206);
@@ -277,7 +313,7 @@ fn arithmetic_works() {
          && 2 * x == Currency(Some('$'), 2412));
     assert!(x / 2 == Currency(Some('$'), 603));
 }
-
+ 
 #[test]
 fn parse_works() {
     let a = Currency(Some('$'), 1210);
@@ -288,7 +324,7 @@ fn parse_works() {
     let d = Currency::from_string("$12");
     assert!(c == d);
 }
-
+ 
 #[test]
 fn display_works() {
     assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
