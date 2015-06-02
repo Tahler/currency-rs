@@ -69,8 +69,8 @@ impl Currency {
         // Try to find the sign
         let mut sign = None;
         let mut unicode: u8 = s.chars().next().unwrap() as u8;
-        // If the first character is not a letter
-        if unicode <= 0x30 || unicode >= 0x39 {
+        // If the first character is not a letter or a decimal point
+        if unicode != 0x2E && (unicode < 0x30 || unicode > 0x39) {
             sign = Some(unicode as char);
         }
         
