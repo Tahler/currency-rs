@@ -21,6 +21,7 @@ use std::marker::Copy;
 /// Each 100 coins results in a banknote. (100 is formatted as 1.00)
 /// The currency will be formatted as such:
 ///     Currency(Some('$'), 432) ==> "$4.32"
+#[derive(Debug)]
 pub struct Currency(pub Option<char>, pub i64);
  
 impl Currency {
