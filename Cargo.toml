@@ -1,6 +1,6 @@
 [package]
 name = "currency"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["tberry@student.neumont.edu"]
 description = "A library written in Rust for representing Currencies."
 repository = "https://github.com/Tahler/rust-lang-currency"
