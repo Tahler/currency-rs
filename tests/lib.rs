@@ -1,6 +1,6 @@
 extern crate currency;
 
-use currency::*;
+use currency::Currency;
 use std::cmp::Ordering;
 
 #[test]

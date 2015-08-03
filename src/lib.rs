@@ -32,6 +32,8 @@ impl Currency {
     /// # Examples 
     /// 
     /// ```
+	/// use currency::Currency;
+	/// 
     /// let mut c = Currency::new();
     /// ```
     #[inline]
@@ -47,16 +49,20 @@ impl Currency {
     /// 
     /// # Examples
     /// ```
-    /// Currency::from_string("$4.32") -> Currency(Some('$'), 432)
-    /// Currency::from_string("424.44") -> Currency(None, 42444)
-    /// Currency::from_string("@12") -> Currency(Some('@'), 1200)
+	/// use currency::Currency;
+	/// 
+    /// assert!(Currency::from_string("$4.32") == Currency(Some('$'), 432));
+    /// assert!(Currency::from_string("424.44") == Currency(None, 42444));
+    /// assert!(Currency::from_string("@12") == Currency(Some('@'), 1200));
     /// ```
     /// 
     /// # Failures
     /// Fails to take note of the floating points position.
     /// ```
-    /// Currency::from_string("$42.012) -> Currency(Some('$'), 42012)
-    /// Currency::from_string("42.") -> Currency(None, 42)
+    /// use currency::Currency;
+	/// 
+    /// assert!(Currency::from_string("$42.012) != Currency(Some('$'), 4201));
+    /// assert!(Currency::from_string("42.") != Currency(None, 4200));
     /// ```
     /// 
     /// # Panics
@@ -246,8 +252,10 @@ impl Div<i64> for Currency {
 /// 
 /// # Examples
 /// ```
-/// Currency(Some('$'), 1210).to_string() == "$12.10"
-/// Currency(None, 1210.to_string() == "12.10" 
+/// use currency::Currency;
+/// 
+/// assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
+/// assert!(Currency(None, 1210).to_string() == "12.10");
 /// ```
 impl Display for Currency {
     #[inline]
