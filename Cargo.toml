@@ -7,3 +7,6 @@ repository = "https://github.com/Tahler/rust-lang-currency"
 documentation = "http://tyborg.me/rust_docs/currency/currency/index.html"
 keywords = ["Currency", "Money"]
 license = "MPL-2.0"
+
+[dependencies]
+regex = "0.1.41"
