@@ -30,7 +30,6 @@ impl Currency {
     /// Creates a blank Currency as Currency(None, 0)
     /// 
     /// # Examples 
-    /// 
     /// ```
 	/// use currency::Currency;
 	/// 
@@ -58,6 +57,7 @@ impl Currency {
     /// 
     /// # Failures
     /// Fails to take note of the floating points position.
+	/// 
     /// ```
     /// use currency::Currency;
 	/// 
