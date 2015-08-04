@@ -60,10 +60,25 @@ fn parse_works() {
     let c = Currency(Some('$'), 1200);
     let d = Currency::from_string("$12");
     assert!(c == d);
+	
+	let e = Currency(None, 1200099);
+    let f = Currency::from_string("12,000.99");
+    assert!(e == f);
+	
+	let g = Currency(Some('£'), 1200099);
+    let h = Currency::from_string("£12.000,99");
+    assert!(g == h);
+	
+	// TODO: include negatives
 }
  
 #[test]
 fn display_works() {
+	assert!(format!("{:?}", Currency(None, 10)) == "Currency(None, 10)");
+	
+	assert!(Currency(None, 1210).to_string() == "12.10");
     assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
-    assert!(Currency(None, 1210).to_string() == "12.10");
+    assert!(Currency(Some('$'), 100010).to_string() == "$1000.10");
+	
+	assert!(format!("{:e}", Currency(Some('£'), 100000)) == "£1000,00");
 }

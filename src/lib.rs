@@ -13,6 +13,7 @@ use std::ops::Mul;
 use std::ops::Div;
 
 use std::fmt::Display;
+use std::fmt::LowerExp;
 use std::fmt::Formatter;
 use std::fmt::Result;
 
@@ -100,10 +101,7 @@ impl Currency {
 }
 
 /// Allows Currencies to be displayed as Strings
-/// The default has no comma delimiting, with a two digit precision decimal
-/// ```text
-/// println!("{}", Currency(Some('$'), 100099)) -> "$1000.99"
-/// ```
+/// The format includes no comma delimiting with a two digit precision decimal
 /// 
 /// # Examples
 /// ```
@@ -111,6 +109,12 @@ impl Currency {
 /// 
 /// assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
 /// assert!(Currency(None, 1210).to_string() == "12.10");
+/// 
+/// println!("{}", Currency(Some('$'), 100099));
+/// ```
+/// The last line prints the following:
+/// ```text
+/// "$1000.99"
 /// ```
 impl Display for Currency {
     #[inline]
@@ -120,6 +124,26 @@ impl Display for Currency {
             Some(c) => write!(f, "{}{}", c, decimal),
             None    => write!(f, "{}", decimal),
         }
+    }
+}
+
+/// Identical to the implementation of Display, but replaces the "." with a ","
+/// Access this formating by using "{:e}"
+/// 
+/// # Examples
+/// ```
+/// use currency::Currency;
+/// 
+/// println!("{:e}", Currency(Some('£'), 100099));
+/// ```
+/// The last line prints the following:
+/// ```text
+/// "£1000,99"
+/// ```
+impl LowerExp for Currency {
+	#[inline]
+    fn fmt(&self, f: &mut Formatter) -> Result {
+		write!(f, "{}", format!("{}", self).replace(".", ","))
     }
 }
 
