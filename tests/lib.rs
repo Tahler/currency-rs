@@ -69,7 +69,23 @@ fn parse_works() {
     let h = Currency::from_string("£12.000,99");
     assert!(g == h);
 	
-	// TODO: include negatives
+	// Negatives
+	let a1 = Currency(Some('$'), -1210);
+    let b1 = Currency::from_string("-$12.10");
+	println!("{:?}, {:?}", a1, b1);
+    assert!(a1 == b1);
+    
+    let c1 = Currency(Some('$'), -1200);
+    let d1 = Currency::from_string("-$12");
+    assert!(c1 == d1);
+	
+	let e1 = Currency(None, -1200099);
+    let f1 = Currency::from_string("-12,000.99");
+    assert!(e1 == f1);
+	
+	let g1 = Currency(Some('£'), -1200099);
+    let h1 = Currency::from_string("-£12.000,99");
+    assert!(g1 == h1);
 }
  
 #[test]

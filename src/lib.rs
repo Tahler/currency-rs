@@ -44,14 +44,15 @@ impl Currency {
  
     /// Uses a Regular Expression to parse a string literal (&str) and turns it into a currency.
     /// 
+	/// If the currency is intended to be a negative amount, ensure the '-' is the first character in the string.
     /// The Regex recognizes European notation (€1,00)
-	/// The display method will print out the format with no comma delimiting with decimal($1000.00)
     /// 
     /// # Examples
     /// ```
 	/// use currency::Currency;
 	/// 
     /// assert!(Currency::from_string("$4.32") == Currency(Some('$'), 432));
+	/// assert!(Currency::from_string("-$4.32") == Currency(Some('$'), -432));
     /// assert!(Currency::from_string("424.44") == Currency(None, 42444));
 	/// assert!(Currency::from_string("£12,00") == Currency(Some('£'), 1200));
 	/// assert!(Currency::from_string("¥12") == Currency(Some('¥'), 1200));
@@ -59,7 +60,6 @@ impl Currency {
     /// 
     /// # Failures
     /// Fails if the string is not formatted correctly.
-	/// Fails to parse negative money.
     /// 
     /// # Panics
     /// Panics if a number fails to be parsed; this only occurs if the string
@@ -70,12 +70,14 @@ impl Currency {
 	
 		// Shadow s with a trimmed version
 		let s = s.trim();
-		let re = Regex::new(r"(?:\b|(\p{Sc})?)((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b").unwrap();
+		let re = Regex::new(r"(?:\b|(-)?)(\p{Sc})?((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b").unwrap();
 		
 		if !re.is_match(s) {
 			panic!("Failed to convert \"{}\" to currency", s);
 		}
 		
+		// Used to negate the final result if the regex matches a negative
+		let mut multiplier = 1;
 		let mut sign: Option<char> = None;
 		let mut coin_str: String = "".to_string();
 		
@@ -87,14 +89,22 @@ impl Currency {
 			}
 			
 			if cap.at(1).is_some() {
-				sign = Some(s.chars().next().unwrap());
+				multiplier = -1;
 			}
-			coin_str = cap.at(2).unwrap().replace(".", "").replace(",", "") + cap.at(3).unwrap_or("00");
+			
+			if cap.at(2).is_some() {
+				if multiplier < 0 {
+					sign = Some(s.chars().skip(1).next().unwrap());
+				} else {
+					sign = Some(s.chars().next().unwrap());
+				}
+			}
+			coin_str = cap.at(3).unwrap().replace(".", "").replace(",", "") + cap.at(4).unwrap_or("00");
 			
 			break;
 		}
 		
-		let coin: i64 = coin_str.parse::<i64>().ok().unwrap();
+		let coin: i64 = multiplier * coin_str.parse::<i64>().ok().unwrap();
 		
 		Currency(sign, coin)
 	}
