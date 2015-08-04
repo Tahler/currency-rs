@@ -41,10 +41,10 @@ impl Currency {
         Currency(None, 0)
     }
  
-    /// Parses a string literal and turns it into a currency.
+    /// Uses a Regular Expression to parse a string literal (&str) and turns it into a currency.
     /// 
-    /// Parsing ignores spaces and commas, only taking note of the digits and 
-    /// leading sign.
+    /// This Can recognize European style (€1,00)
+	/// The display method will print out the format as $1000.00 (no comma delimiting, with decimal)
     /// 
     /// # Examples
     /// ```
@@ -52,64 +52,49 @@ impl Currency {
 	/// 
     /// assert!(Currency::from_string("$4.32") == Currency(Some('$'), 432));
     /// assert!(Currency::from_string("424.44") == Currency(None, 42444));
-    /// assert!(Currency::from_string("@12") == Currency(Some('@'), 1200));
+    /// assert!(Currency::from_string("¥12") == Currency(Some('¥'), 1200));
+	/// assert!(Currency::from_string("£12,00") == Currency(Some('£'), 1200));
     /// ```
     /// 
     /// # Failures
-    /// Fails to take note of the floating points position.
-	/// 
-    /// ```
-    /// use currency::Currency;
-	/// 
-    /// assert!(Currency::from_string("$42.012) != Currency(Some('$'), 4201));
-    /// assert!(Currency::from_string("42.") != Currency(None, 4200));
-    /// ```
+    /// Fails if the string is not formatted correctly
     /// 
     /// # Panics
     /// Panics if a number fails to be parsed; this only occurs if the string
     /// argument has no numbers in it.
-    ///
-    /// # Safety
-    /// If a decimal point is intended to be marked, always use '.'
-    /// A "European style" ',' will be ignored.
-    /// String::from_string("€4.32") instead of String::from_string("€4,32")
     #[allow(dead_code)]
     pub fn from_string(s: &str) -> Currency {
-        // Try to find the sign
-        let mut sign = None;
-        let mut unicode: u8 = s.chars().next().unwrap() as u8;
-        // If the first character is not a letter or a decimal point
-        if unicode != 0x2E && (unicode < 0x30 || unicode > 0x39) {
-            sign = Some(unicode as char);
-        }
-        
-        // Find the numbers
-        let mut should_multiply = true; // May later change if '.' is specified
-        let mut coin_str = String::new();
-        for c in s.chars() {
-            unicode = c as u8;
-            // Only pay attention to numbers
-            if unicode >= 0x30 && unicode <= 0x39 {
-                coin_str = coin_str + &c.to_string();
-            }
-            // If coins are explicitly specified (via a '.'), then we shouldn't
-            // multiply at the end
-            if unicode == 0x2E {
-                should_multiply = false;
-            }
-        }
-        // Parse out the resulting number
-        let mut coin: i64 = coin_str.parse()
-            .ok()
-            .expect("Failed to convert string to currency");
-        
-        if should_multiply {
-            coin *= 100;
-        }
-        
-        // Return result
-        Currency(sign, coin)
-    }
+		use regex::Regex;
+	
+		let s = s.trim();
+		let re = Regex::new(r"(?:\b|(\p{Sc})?)((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b").unwrap();
+		
+		if !re.is_match(s) {
+			panic!("Failed to convert \"{}\" to currency", s);
+		}
+		
+		let mut sign: Option<char> = None;
+		let mut coin_str: String = "".to_string();
+		
+		// If anyone's looking at this and knows how to do this without a loop, fork this.
+		for cap in re.captures_iter(s) {
+			// Without this, there is undefined behavior (try putting a character in the middle of s)
+			if cap.at(0).unwrap_or("") != s {
+				panic!("Failed to convert \"{}\" to currency", s);
+			}
+			
+			if cap.at(1).is_some() {
+				sign = Some(s.chars().next().unwrap());
+			}
+			coin_str = cap.at(2).unwrap().replace(".", "").replace(",", "") + cap.at(3).unwrap_or("00");
+			
+			break;
+		}
+		
+		let coin: i64 = coin_str.parse::<i64>().ok().unwrap();
+		
+		Currency(sign, coin)
+	}
 }
  
 /// Overloads the '==' operator for Currency objects.
