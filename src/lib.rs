@@ -43,8 +43,8 @@ impl Currency {
  
     /// Uses a Regular Expression to parse a string literal (&str) and turns it into a currency.
     /// 
-    /// This Can recognize European style (€1,00)
-	/// The display method will print out the format as $1000.00 (no comma delimiting, with decimal)
+    /// The Regex recognizes European notation (€1,00)
+	/// The display method will print out the format with no comma delimiting with decimal($1000.00)
     /// 
     /// # Examples
     /// ```
@@ -52,12 +52,13 @@ impl Currency {
 	/// 
     /// assert!(Currency::from_string("$4.32") == Currency(Some('$'), 432));
     /// assert!(Currency::from_string("424.44") == Currency(None, 42444));
-    /// assert!(Currency::from_string("¥12") == Currency(Some('¥'), 1200));
 	/// assert!(Currency::from_string("£12,00") == Currency(Some('£'), 1200));
+	/// assert!(Currency::from_string("¥12") == Currency(Some('¥'), 1200));
     /// ```
     /// 
     /// # Failures
-    /// Fails if the string is not formatted correctly
+    /// Fails if the string is not formatted correctly.
+	/// Fails to parse negative money.
     /// 
     /// # Panics
     /// Panics if a number fails to be parsed; this only occurs if the string
@@ -66,6 +67,7 @@ impl Currency {
     pub fn from_string(s: &str) -> Currency {
 		use regex::Regex;
 	
+		// Shadow s with a trimmed version
 		let s = s.trim();
 		let re = Regex::new(r"(?:\b|(\p{Sc})?)((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b").unwrap();
 		
@@ -96,7 +98,28 @@ impl Currency {
 		Currency(sign, coin)
 	}
 }
- 
+
+/// Allows Currencies to be displayed as Strings
+/// println!("{}", Currency(Some('$'), 1099)) -> "$10.99"
+/// 
+/// # Examples
+/// ```
+/// use currency::Currency;
+/// 
+/// assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
+/// assert!(Currency(None, 1210).to_string() == "12.10");
+/// ```
+impl Display for Currency {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter) -> Result {
+		let decimal = format!("{:.*}", 2, (self.1 as f32 / 100.0));
+        match self.0 {
+            Some(c) => write!(f, "{}{}", c, decimal),
+            None    => write!(f, "{}", decimal),
+        }
+    }
+}
+
 /// Overloads the '==' operator for Currency objects.
 /// 
 /// # Panics
@@ -230,28 +253,6 @@ impl Div<i64> for Currency {
     #[inline]
     fn div(self, rhs: i64) -> Currency {
         Currency(self.0, self.1 / rhs)
-    }
-}
- 
-/// Allows Currencies to be displayed as Strings
-/// 
-/// # Examples
-/// ```
-/// use currency::Currency;
-/// 
-/// assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
-/// assert!(Currency(None, 1210).to_string() == "12.10");
-/// ```
-impl Display for Currency {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        let decimal = (self.1 / 100).to_string()
-            + &('.').to_string()
-            + &(self.1 % 100).to_string();
-        match self.0 {
-            Some(c) => write!(f, "{}{}", c, decimal),
-            None    => write!(f, "{}", decimal),
-        }
     }
 }
  
