@@ -100,7 +100,10 @@ impl Currency {
 }
 
 /// Allows Currencies to be displayed as Strings
-/// println!("{}", Currency(Some('$'), 1099)) -> "$10.99"
+/// The default has no comma delimiting, with a two digit precision decimal
+/// ```text
+/// println!("{}", Currency(Some('$'), 100099)) -> "$1000.99"
+/// ```
 /// 
 /// # Examples
 /// ```
@@ -112,7 +115,7 @@ impl Currency {
 impl Display for Currency {
     #[inline]
     fn fmt(&self, f: &mut Formatter) -> Result {
-		let decimal = format!("{:.*}", 2, (self.1 as f32 / 100.0));
+		let decimal = format!("{:.2}", (self.1 as f32 / 100.0));
         match self.0 {
             Some(c) => write!(f, "{}{}", c, decimal),
             None    => write!(f, "{}", decimal),
