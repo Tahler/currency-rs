@@ -22,8 +22,7 @@ use std::marker::Copy;
 /// Represents currency through an optional symbol and amount of coin.
 ///
 /// Each 100 coins results in a banknote. (100 is formatted as 1.00)
-/// The currency will be formatted as such:
-///     Currency(Some('$'), 432) ==> "$4.32"
+/// The currency will be formatted as such: `Currency(Some('$'), 432)` ==> "$4.32"
 #[derive(Debug)]
 pub struct Currency(pub Option<char>, pub i64);
 
@@ -58,7 +57,6 @@ impl Currency {
     /// assert!(Currency::from_string("424.44") == Some(Currency(None, 42444)));
     /// assert!(Currency::from_string("£12,00") == Some(Currency(Some('£'), 1200)));
     /// assert!(Currency::from_string("¥12")    == Some(Currency(Some('¥'), 1200)));
-    /// assert!(Currency::from_string)
     /// ```
     #[allow(dead_code)]
     pub fn from_string(s: &str) -> Option<Currency> {
@@ -66,7 +64,9 @@ impl Currency {
 
         // Shadow s with a trimmed version
         let s = s.trim();
-        let re = Regex::new(r"(?:\b|(-)?)(\p{Sc})?((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b").unwrap();
+        let re = 
+            Regex::new(r"(?:\b|(-)?)(\p{Sc})?((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b")
+            .unwrap();
 
         if !re.is_match(s) {
             return None;
@@ -79,7 +79,6 @@ impl Currency {
 
         // If anyone's looking at this and knows how to do this without a loop, fork this.
         for cap in re.captures_iter(s) {
-            // Without this, there is undefined behavior (try putting a character in the middle of s)
             if cap.at(0).unwrap_or("") != s {
                 return None;
             }
@@ -95,7 +94,8 @@ impl Currency {
                     sign = Some(s.chars().next().unwrap());
                 }
             }
-            coin_str = cap.at(3).unwrap().replace(".", "").replace(",", "") + cap.at(4).unwrap_or("00");
+            coin_str = cap.at(3).unwrap().replace(".", "").replace(",", "")
+                     + cap.at(4).unwrap_or("00");
 
             break;
         }
@@ -107,8 +107,8 @@ impl Currency {
     }
 }
 
-/// Allows Currencies to be displayed as Strings
-/// The format includes no comma delimiting with a two digit precision decimal
+/// Allows Currencies to be displayed as Strings. The format includes no comma delimiting with a 
+/// two digit precision decimal.
 ///
 /// # Examples
 /// ```
@@ -134,8 +134,8 @@ impl Display for Currency {
     }
 }
 
-/// Identical to the implementation of Display, but replaces the "." with a ","
-/// Access this formating by using "{:e}"
+/// Identical to the implementation of Display, but replaces the "." with a ",". Access this 
+/// formating by using "{:e}".
 ///
 /// # Examples
 /// ```
@@ -157,8 +157,8 @@ impl LowerExp for Currency {
 /// Overloads the '==' operator for Currency objects.
 ///
 /// # Panics
-/// Panics if the two comparators are different types of currency, as denoted by
-/// the Currency's symbol.
+/// Panics if the two comparators are different types of currency, as denoted by the Currency's 
+/// symbol.
 impl PartialEq<Currency> for Currency {
     #[inline]
     fn eq(&self, rhs: &Currency) -> bool {
@@ -220,8 +220,7 @@ impl PartialOrd<Currency> for Currency {
 /// Overloads the '+' operator for Currency objects.
 ///
 /// # Panics
-/// Panics if the two addends are different types of currency, as denoted by the 
-/// Currency's symbol.
+/// Panics if the two addends are different types of currency, as denoted by the Currency's symbol.
 impl Add for Currency {
     type Output = Currency;
 
@@ -238,8 +237,8 @@ impl Add for Currency {
 /// Overloads the '-' operator for Currency objects.
 ///
 /// # Panics
-/// Panics if the minuend and subtrahend are two different types of currency,
-/// as denoted by the Currency's symbol.
+/// Panics if the minuend and subtrahend are two different types of currency, as denoted by the 
+/// Currency's symbol.
 impl Sub for Currency {
     type Output = Currency;
 
