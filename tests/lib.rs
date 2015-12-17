@@ -4,6 +4,22 @@ use currency::Currency;
 use std::cmp::Ordering;
 
 #[test]
+fn parsing(){
+    // all these should pass in the end
+    assert_eq!(Currency::from_string("€0,50"),  Some(Currency(Some('€'), 50)));
+    assert_eq!(Currency::from_string("€0.50"),  Some(Currency(Some('€'), 50)));
+    assert_eq!(Currency::from_string("-€0.50"),  Some(Currency(Some('€'), -50)));
+    //assert_eq!(Currency::from_string("€-0.50"),  Some(Currency(Some('€'), -50)));
+    //assert_eq!(Currency::from_string("x0.50"),  Some(Currency(Some('x'), 50)));
+    //assert_eq!(Currency::from_string("0.50x"),  Some(Currency(Some('x'), 50)));
+    //assert_eq!(Currency::from_string("0.5"),  Some(Currency(None, 50)));
+    //assert_eq!(Currency::from_string(".5"),   Some(Currency(None, 50)));
+    //assert_eq!(Currency::from_string(".55"),  Some(Currency(None, 55)));
+    //assert_eq!(Currency::from_string(".559"), None);
+
+}
+
+#[test]
 fn eq_works() {
     let a = Currency(Some('$'), 1210);
     let b = Currency(Some('$'), 1210);
@@ -55,37 +71,37 @@ fn arithmetic_works() {
 fn parse_works() {
     let a = Currency(Some('$'), 1210);
     let b = Currency::from_string("$12.10");
-    assert!(a == b);
+    assert!(Some(a) == b);
 
     let c = Currency(Some('$'), 1200);
     let d = Currency::from_string("$12");
-    assert!(c == d);
+    assert!(Some(c) == d);
 
 	let e = Currency(None, 1200099);
     let f = Currency::from_string("12,000.99");
-    assert!(e == f);
+    assert!(Some(e) == f);
 
 	let g = Currency(Some('£'), 1200099);
     let h = Currency::from_string("£12.000,99");
-    assert!(g == h);
+    assert!(Some(g) == h);
 
 	// Negatives
 	let a1 = Currency(Some('$'), -1210);
     let b1 = Currency::from_string("-$12.10");
 	println!("{:?}, {:?}", a1, b1);
-    assert!(a1 == b1);
+    assert!(Some(a1) == b1);
 
     let c1 = Currency(Some('$'), -1200);
     let d1 = Currency::from_string("-$12");
-    assert!(c1 == d1);
+    assert!(Some(c1) == d1);
 
 	let e1 = Currency(None, -1200099);
     let f1 = Currency::from_string("-12,000.99");
-    assert!(e1 == f1);
+    assert!(Some(e1) == f1);
 
 	let g1 = Currency(Some('£'), -1200099);
     let h1 = Currency::from_string("-£12.000,99");
-    assert!(g1 == h1);
+    assert!(Some(g1) == h1);
 }
 
 #[test]

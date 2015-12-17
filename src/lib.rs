@@ -51,11 +51,11 @@ impl Currency {
     /// ```
     /// use currency::Currency;
     ///
-    /// assert!(Currency::from_string("$4.32") == Currency(Some('$'), 432));
-    /// assert!(Currency::from_string("-$4.32") == Currency(Some('$'), -432));
-    /// assert!(Currency::from_string("424.44") == Currency(None, 42444));
-    /// assert!(Currency::from_string("£12,00") == Currency(Some('£'), 1200));
-    /// assert!(Currency::from_string("¥12") == Currency(Some('¥'), 1200));
+    /// assert!(Currency::from_string("$4.32")  == Some(Currency(Some('$'), 432)));
+    /// assert!(Currency::from_string("-$4.32") == Some(Currency(Some('$'), -432)));
+    /// assert!(Currency::from_string("424.44") == Some(Currency(None, 42444)));
+    /// assert!(Currency::from_string("£12,00") == Some(Currency(Some('£'), 1200)));
+    /// assert!(Currency::from_string("¥12")    == Some(Currency(Some('¥'), 1200)));
     /// ```
     ///
     /// # Failures
@@ -73,7 +73,7 @@ impl Currency {
         let re = Regex::new(r"(?:\b|(-)?)(\p{Sc})?((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b").unwrap();
 
         if !re.is_match(s) {
-            panic!("Failed to convert \"{}\" to currency", s);
+            return None;
         }
 
         // Used to negate the final result if the regex matches a negative
@@ -85,7 +85,7 @@ impl Currency {
         for cap in re.captures_iter(s) {
             // Without this, there is undefined behavior (try putting a character in the middle of s)
             if cap.at(0).unwrap_or("") != s {
-                panic!("Failed to convert \"{}\" to currency", s);
+                return None;
             }
 
             if cap.at(1).is_some() {
@@ -104,9 +104,10 @@ impl Currency {
             break;
         }
 
-        let coin: i64 = multiplier * coin_str.parse::<i64>().ok().unwrap();
-
-        Currency(sign, coin)
+        if let Ok(coin) = coin_str.parse::<i64>(){
+            return Some(Currency(sign, multiplier * coin));
+        }
+        None
     }
 }
 
