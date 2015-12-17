@@ -42,9 +42,11 @@ impl Currency {
         Currency(None, 0)
     }
 
-    /// Uses a Regular Expression to parse a string literal (&str) and turns it into a currency.
+    /// Uses a Regular Expression to parse a string literal (&str) and attempts to turn it into a 
+    /// currency. Returns `Some(Currency)` on a successful conversion, otherwise `None`.
     ///
-    /// If the currency is intended to be a negative amount, ensure the '-' is the first character in the string.
+    /// If the currency is intended to be a negative amount, ensure the '-' is the first character 
+    /// in the string.
     /// The Regex recognizes European notation (€1,00)
     ///
     /// # Examples
@@ -56,14 +58,8 @@ impl Currency {
     /// assert!(Currency::from_string("424.44") == Some(Currency(None, 42444)));
     /// assert!(Currency::from_string("£12,00") == Some(Currency(Some('£'), 1200)));
     /// assert!(Currency::from_string("¥12")    == Some(Currency(Some('¥'), 1200)));
+    /// assert!(Currency::from_string)
     /// ```
-    ///
-    /// # Failures
-    /// Fails if the string is not formatted correctly.
-    ///
-    /// # Panics
-    /// Panics if a number fails to be parsed; this only occurs if the string
-    /// argument has no numbers in it.
     #[allow(dead_code)]
     pub fn from_string(s: &str) -> Option<Currency> {
         use regex::Regex;
@@ -224,7 +220,7 @@ impl PartialOrd<Currency> for Currency {
 /// Overloads the '+' operator for Currency objects.
 ///
 /// # Panics
-/// Panics if the two addends are different types of currency, as denoted by the
+/// Panics if the two addends are different types of currency, as denoted by the 
 /// Currency's symbol.
 impl Add for Currency {
     type Output = Currency;
