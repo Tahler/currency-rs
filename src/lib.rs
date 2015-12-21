@@ -275,6 +275,24 @@ impl Mul<Currency> for i64 {
     }
 }
 
+impl Mul<f64> for Currency {
+    type Output = Currency;
+
+    #[inline]
+    fn mul(self, rhs: f64) -> Currency {
+        Currency(self.0, (self.1 as f64 * rhs).round() as i64)
+    }
+}
+
+impl Mul<Currency> for f64 {
+    type Output = Currency;
+
+    #[inline]
+    fn mul(self, rhs: Currency) -> Currency {
+        rhs * self
+    }
+}
+
 /// Overloads the '/' operator for Currency objects.
 ///
 /// Allows a Currency to be divided by an i64.
