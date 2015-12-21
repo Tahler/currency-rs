@@ -17,13 +17,11 @@ use std::fmt::LowerExp;
 use std::fmt::Formatter;
 use std::fmt::Result;
 
-use std::marker::Copy;
-
 /// Represents currency through an optional symbol and amount of coin.
 ///
 /// Each 100 coins results in a banknote. (100 is formatted as 1.00)
 /// The currency will be formatted as such: `Currency(Some('$'), 432)` ==> "$4.32"
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Currency(pub Option<char>, pub i64);
 
 impl Currency {
@@ -41,10 +39,10 @@ impl Currency {
         Currency(None, 0)
     }
 
-    /// Uses a Regular Expression to parse a string literal (&str) and attempts to turn it into a 
+    /// Uses a Regular Expression to parse a string literal (&str) and attempts to turn it into a
     /// currency. Returns `Some(Currency)` on a successful conversion, otherwise `None`.
     ///
-    /// If the currency is intended to be a negative amount, ensure the '-' is the first character 
+    /// If the currency is intended to be a negative amount, ensure the '-' is the first character
     /// in the string.
     /// The Regex recognizes European notation (€1,00)
     ///
@@ -64,7 +62,7 @@ impl Currency {
 
         // Shadow s with a trimmed version
         let s = s.trim();
-        let re = 
+        let re =
             Regex::new(r"(?:\b|(-)?)(\p{Sc})?((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b")
             .unwrap();
 
@@ -107,7 +105,7 @@ impl Currency {
     }
 }
 
-/// Allows Currencies to be displayed as Strings. The format includes no comma delimiting with a 
+/// Allows Currencies to be displayed as Strings. The format includes no comma delimiting with a
 /// two digit precision decimal.
 ///
 /// # Examples
@@ -134,7 +132,7 @@ impl Display for Currency {
     }
 }
 
-/// Identical to the implementation of Display, but replaces the "." with a ",". Access this 
+/// Identical to the implementation of Display, but replaces the "." with a ",". Access this
 /// formating by using "{:e}".
 ///
 /// # Examples
@@ -157,7 +155,7 @@ impl LowerExp for Currency {
 /// Overloads the '==' operator for Currency objects.
 ///
 /// # Panics
-/// Panics if the two comparators are different types of currency, as denoted by the Currency's 
+/// Panics if the two comparators are different types of currency, as denoted by the Currency's
 /// symbol.
 impl PartialEq<Currency> for Currency {
     #[inline]
@@ -237,7 +235,7 @@ impl Add for Currency {
 /// Overloads the '-' operator for Currency objects.
 ///
 /// # Panics
-/// Panics if the minuend and subtrahend are two different types of currency, as denoted by the 
+/// Panics if the minuend and subtrahend are two different types of currency, as denoted by the
 /// Currency's symbol.
 impl Sub for Currency {
     type Output = Currency;
@@ -288,12 +286,3 @@ impl Div<i64> for Currency {
         Currency(self.0, self.1 / rhs)
     }
 }
-
-/// Allows Currencies to be copied, rather than using move semantics.
-impl Copy for Currency { }
-impl Clone for Currency {
-    #[inline]
-    fn clone(&self) -> Currency { *self }
-}
-
-
