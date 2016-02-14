@@ -280,7 +280,7 @@ impl Mul<f64> for Currency {
 
     #[inline]
     fn mul(self, rhs: f64) -> Currency {
-        Currency(self.0, (self.1 as f64 * rhs).round() as i64)
+        Currency(self.0, (self.1 as f64 * rhs).ceil() as i64)
     }
 }
 
