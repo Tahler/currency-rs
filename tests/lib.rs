@@ -4,6 +4,22 @@ use currency::Currency;
 use std::cmp::Ordering;
 
 #[test]
+fn taxes() {
+    let a = Currency(Some('$'), 1000);
+    let b = Currency(Some('$'), 1190);
+
+    fn foo(n:f64) -> i64{
+        (n*1000f64).abs() as i64
+    }
+
+    assert_eq!(1*foo(1.19), 1190);
+    assert_eq!(a*1.19, b);
+    assert_eq!(1.19*a, b);
+    assert_eq!(a*1.1901, b);
+    assert_eq!(1.1901*a, b);
+}
+
+#[test]
 fn eq_works() {
     let a = Currency(Some('$'), 1210);
     let b = Currency(Some('$'), 1210);
