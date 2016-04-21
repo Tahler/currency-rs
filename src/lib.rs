@@ -1,5 +1,14 @@
-﻿#![crate_type = "lib"]
-#![crate_name = "currency"]
+﻿//! This provides a simple type that encodes a currency.
+
+#![deny(
+    missing_docs,
+    trivial_casts,
+    trivial_numeric_casts,
+    unstable_features,
+    unused_import_braces,
+    unused_qualifications
+    )]
+
 
 extern crate regex;
 
@@ -275,12 +284,13 @@ impl Mul<Currency> for i64 {
     }
 }
 
+/// Multiplies with float, probably not a good idea, help appreciated.
 impl Mul<f64> for Currency {
     type Output = Currency;
 
     #[inline]
     fn mul(self, rhs: f64) -> Currency {
-        Currency(self.0, (self.1 as f64 * rhs).ceil() as i64)
+        Currency(self.0, (self.1 as f64 * rhs).round() as i64)
     }
 }
 
