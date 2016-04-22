@@ -1,5 +1,8 @@
 ﻿extern crate num;
 
+// TODO copyright
+// TODO crate level docs
+
 use std::{ops, cmp, fmt, str, error};
 
 use num::bigint::BigInt;
@@ -37,47 +40,88 @@ impl Currency {
     /// Parses a string literal (&str) and attempts to convert it into a currency. Returns
     /// `Ok(Currency)` on a successful conversion, otherwise `Err(ParseCurrencyError)`.
     ///
-    /// If the currency is intended to be a negative amount, ensure the '-' lies before the digits.
+    /// `from_str` can be unexpectedly simple, so be be aware of the following rules:
     ///
-    /// All non-digit characters in the string are ignored except for the starting '-' and
-    /// optional symbol.
+    /// 1. If the string contains a '-' before any digits, the Currency will be negative.
+    /// 2. The first non-digit character (excluding '-', ',' and '.') will become the Currency's
+    /// symbol.
+    /// 3. Only the final '.' or ',' is significant. If it is not followed by two digits (the
+    /// "cents"), it is treated as if there were a ".00" or ",00" after it. TODO
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```
     /// use currency::Currency;
     ///
-    /// let c = Currency::from_str("$4.32");
+    /// let c1 = Currency::from_str("$42.32").unwrap();
+    /// let c2 = Currency::from_str("$0.10").unwrap();
+    /// assert_eq!(c1 + c2, Currency::from_str("$42.42").unwrap());
     /// ```
     pub fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
         use std::str::FromStr;
         use num::bigint::{BigUint, Sign};
 
+        fn is_symbol(c: char) -> bool {
+            !c.is_digit(10) && c != '-' && c != '.' && c != ','
+        }
+
+        fn is_delimiter(c: char) -> bool {
+            c == '.' || c == ','
+        }
+
         let err = ParseCurrencyError::new(s);
 
-        // look for any '-'
-        let sign = if s.contains('-') {
-            Sign::Minus
-        } else {
-            Sign::Plus
-        };
-        // find all digits
-        let unsigned_digits: String = s.chars().filter(|c| c.is_digit(10)).collect();
-        let parse_result = BigUint::from_str(&unsigned_digits);
+        let mut digits = String::new();
+        let mut symbol = None;
+        let mut sign = Sign::Plus;
+
+        let mut first_delimiter = None;
+        let mut last_delimiter = None;
+        let mut final_streak_len = 0;
+        for c in s.chars() {
+            if c == '-' && digits.len() == 0 {
+                sign = Sign::Minus;
+            } else if is_delimiter(c) {
+                final_streak_len = 0;
+                if first_delimiter.is_none() {
+                    first_delimiter = Some(c);
+                    last_delimiter = Some(c);
+                } else {
+                    last_delimiter = Some(c);
+                }
+            } else if is_symbol(c) {
+                if symbol.is_none() {
+                    symbol = Some(c);
+                }
+            } else {
+                final_streak_len += 1;
+                digits.push(c);
+            }
+        }
+
+        let parse_result = BigUint::from_str(&digits);
         let unsigned_bigint = match parse_result {
             Ok(int) => int,
             Err(_) => return Err(err)
         };
+        let mut coin = BigInt::from_biguint(sign, unsigned_bigint);
 
-        let coin = BigInt::from_biguint(sign, unsigned_bigint);
-
-        // look for first non '-' symbol
-        let symbols: Vec<char> = s.chars().filter(|c| !c.is_digit(10) && c != &'-').collect();
-        let symbol = if symbols.len() > 1 {
-            Some(symbols[0])
-        } else {
-            None
-        };
+        // decimal adjustment
+        if first_delimiter.is_none() { // no decimal at all
+            let big_int_factor = BigInt::from(100);
+            coin = coin * big_int_factor;
+        } else if final_streak_len < 3 { // some delimiter with more than three spaces
+            let factor = 10u32.pow(2 - final_streak_len);
+            let big_int_factor = BigInt::from(factor);
+            coin = coin * big_int_factor;
+        } else if first_delimiter == last_delimiter {
+            let big_int_factor = BigInt::from(100);
+            coin = coin * big_int_factor;
+        } else if first_delimiter != last_delimiter { // two delimiters with a different last one
+            let divisor = 10u32.pow(final_streak_len - 2);
+            let big_int = BigInt::from(divisor);
+            coin = coin / big_int;
+        }
 
         let currency = Currency {
             symbol: symbol,
@@ -144,21 +188,6 @@ impl Currency {
 impl str::FromStr for Currency {
     type Err = ParseCurrencyError;
 
-    /// Parses a string literal (&str) and attempts to convert it into a currency. Returns
-    /// `Ok(Currency)` on a successful conversion, otherwise `Err(ParseCurrencyError)`.
-    ///
-    /// If the currency is intended to be a negative amount, ensure the '-' lies before the digits.
-    ///
-    /// All non-digit characters in the string are ignored except for the starting '-' and
-    /// optional symbol.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use currency::Currency;
-    ///
-    /// let c = Currency::from_str("$4.32");
-    /// ```
     fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
         Currency::from_str(s)
     }
@@ -495,9 +524,39 @@ mod tests {
     fn test_from_str() {
         use std::str::FromStr;
 
-        let a1 = Currency { symbol: Some('$'), coin: BigInt::from(1210) };
-        let b1 = Currency::from_str("$12.10");
-        assert_eq!(a1, b1.unwrap());
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(1210) };
+
+        let actual = Currency::from_str("$12.10").unwrap();
+        assert_eq!(expected, actual);
+
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(121000) };
+
+        let actual = Currency::from_str("$1210").unwrap();
+        assert_eq!(expected, actual);
+
+        let actual = Currency::from_str("$1,210").unwrap();
+        assert_eq!(expected, actual);
+
+        let actual = Currency::from_str("$1,210.00").unwrap();
+        assert_eq!(expected, actual);
+
+        let actual = Currency::from_str("$1210.").unwrap();
+        assert_eq!(expected, actual);
+
+        let actual = Currency::from_str("$1210.0").unwrap();
+        assert_eq!(expected, actual);
+
+        let actual = Currency::from_str("$1.210,0").unwrap();
+        assert_eq!(expected, actual);
+
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(102000) };
+        let actual = Currency::from_str("$1020.").unwrap();
+        assert_eq!(expected, actual);
+        // $1,000 = 1,000.00
+        // $1.0,00 = 10.00
+        // 1,000,000.0 = 1,000,000.00
+        // 1,000,000,0 = 1,000,000.00
+        // 1,000,000. = 1,000,000.00
 
         // let a2 = Currency { symbol: Some('$'), coin: BigInt::from(1200) };
         // let b2 = Currency::from("$12");
