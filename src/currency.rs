@@ -5,8 +5,9 @@ use super::num::Zero;
 
 /// Represents currency through an optional symbol and amount of coin.
 ///
-/// Every 100 coins results in a banknote. (100 is formatted as 1.00)
-/// The currency will be formatted as such: `Currency(Some('$'), 432)` ==> "$4.32"
+/// Every 100 coins represents a banknote. (coin: 100 => 1.00)
+/// A currency is formatted by default as such:
+/// `Currency { symbol: Some('$'), coin: 432 }` => "$4.32"
 #[derive(Debug, Clone)]
 pub struct Currency {
     symbol: Option<char>,
