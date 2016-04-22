@@ -1,19 +1,4 @@
-use std::cmp::PartialEq;
-use std::cmp::PartialOrd;
-use std::cmp::Ordering;
-
-use std::ops::Add;
-use std::ops::Sub;
-use std::ops::Mul;
-use std::ops::Div;
-
-use std::fmt::Display;
-use std::fmt::LowerExp;
-use std::fmt::Formatter;
-use std::fmt::Result;
-
-use std::str::FromStr;
-
+use std::{ops, cmp, fmt, str, error};
 use std::marker::Copy;
 
 use super::num::bigint::BigInt;
@@ -29,10 +14,11 @@ pub struct Currency {
 }
 
 impl Currency {
-    /// Creates a blank Currency as Currency(None, 0)
+    /// Creates a blank Currency with no symbol and 0 coin.
     ///
     /// # Examples
     /// ```
+    /// extern crate currency;
     /// use currency::Currency;
     ///
     /// let mut c = Currency::new();
@@ -43,6 +29,36 @@ impl Currency {
             coin: BigInt::zero()
         }
     }
+}
+
+/// Allows any Currency to be displayed as a String. The format includes no comma delimiting with a
+/// two digit precision decimal.
+///
+/// # Examples
+/// ```
+/// use currency::Currency;
+///
+/// assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
+/// assert!(Currency(None, 1210).to_string() == "12.10");
+///
+/// println!("{}", Currency(Some('$'), 100099));
+/// ```
+/// The last line prints:
+/// ```text
+/// "$1000.99"
+/// ```
+impl fmt::Display for Currency {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let decimal = format!("{:.2}", (self.1 as f32 / 100.0));
+        match self.0 {
+            Some(c) => write!(f, "{}{}", c, decimal),
+            None    => write!(f, "{}", decimal),
+        }
+    }
+}
+
+impl str::FromStr for Currency {
+    type Err = ParseCurrencyError;
 
     /// Uses a Regular Expression to parse a string literal (&str) and attempts to turn it into a
     /// currency. Returns `Some(Currency)` on a successful conversion, otherwise `None`.
@@ -61,15 +77,14 @@ impl Currency {
     /// assert!(Currency::from_string("£12,00") == Some(Currency(Some('£'), 1200)));
     /// assert!(Currency::from_string("¥12")    == Some(Currency(Some('¥'), 1200)));
     /// ```
-    #[allow(dead_code)]
-    pub fn from_string(s: &str) -> Option<Currency> {
+    fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
         use regex::Regex;
 
         // Shadow s with a trimmed version
         let s = s.trim();
         let re =
-            Regex::new(r"(?:\b|(-)?)(\p{Sc})?((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b")
-            .unwrap();
+        Regex::new(r"(?:\b|(-)?)(\p{Sc})?((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b")
+        .unwrap();
 
         if !re.is_match(s) {
             return None;
@@ -98,7 +113,7 @@ impl Currency {
                 }
             }
             coin_str = cap.at(3).unwrap().replace(".", "").replace(",", "")
-                     + cap.at(4).unwrap_or("00");
+            + cap.at(4).unwrap_or("00");
 
             break;
         }
@@ -110,42 +125,14 @@ impl Currency {
     }
 }
 
-/// Allows Currencies to be displayed as Strings. The format includes no comma delimiting with a
-/// two digit precision decimal.
-///
-/// # Examples
-/// ```
-/// use currency::Currency;
-///
-/// assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
-/// assert!(Currency(None, 1210).to_string() == "12.10");
-///
-/// println!("{}", Currency(Some('$'), 100099));
-/// ```
-/// The last line prints the following:
-/// ```text
-/// "$1000.99"
-/// ```
-impl Display for Currency {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        let decimal = format!("{:.2}", (self.1 as f32 / 100.0));
-        match self.0 {
-            Some(c) => write!(f, "{}{}", c, decimal),
-            None    => write!(f, "{}", decimal),
-        }
-    }
-}
-
-impl FromStr for Currency {
-    type Err = ParseCurrencyError;
-
-    fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
-        unimplemented!()
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParseCurrencyError;
+
+impl error::Error for ParseCurrencyError {
+    fn description(&self) -> &str {
+        "failed to parse currency"
+    }
+}
 
 /// Identical to the implementation of Display, but replaces the "." with a ",". Access this
 /// formating by using "{:e}".
@@ -160,8 +147,8 @@ pub struct ParseCurrencyError;
 /// ```text
 /// "£1000,99"
 /// ```
-impl LowerExp for Currency {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+impl fmt::LowerExp for Currency {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", format!("{}", self).replace(".", ","))
     }
 }
@@ -189,39 +176,43 @@ impl PartialEq<Currency> for Currency {
 /// Panics if the two comparators are different types of currency, as denoted by
 /// the Currency's symbol.
 impl PartialOrd<Currency> for Currency {
-    fn partial_cmp(&self, rhs: &Currency) -> Option<Ordering> {
-        if self.0 == rhs.0 {
-            if self < rhs { return Some(Ordering::Less) }
-            if self == rhs { return Some(Ordering::Equal) }
-            if self > rhs { return Some(Ordering::Greater) }
+    fn partial_cmp(&self, rhs: &Currency) -> Option<cmp::Ordering> {
+        if self.symbol == rhs.symbol {
+            self.coin.partial_cmp(rhs.coin)
         }
         None
     }
 
     fn lt(&self, rhs: &Currency) -> bool {
-        if self.0 == rhs.0 {
-            self.1 < rhs.1
-        }
-        else {
+        if self.symbol == rhs.symbol {
+            self.coin.lt(rhs.coin)
+        } else {
             panic!("Cannot compare two different types of currency.");
         }
     }
 
     fn le(&self, rhs: &Currency) -> bool {
-        self < rhs || self == rhs
+        if self.symbol == rhs.symbol {
+            self.coin.le(rhs.coin)
+        } else {
+            panic!("Cannot compare two different types of currency.");
+        }
     }
 
     fn gt(&self, rhs: &Currency) -> bool {
-        if self.0 == rhs.0 {
-            self.1 > rhs.1
-        }
-        else {
+        if self.symbol == rhs.symbol {
+            self.coin.gt(rhs.coin)
+        } else {
             panic!("Cannot compare two different types of currency.");
         }
     }
 
     fn ge(&self, rhs: &Currency) -> bool {
-        self > rhs || self == rhs
+        if self.symbol == rhs.symbol {
+            self.coin.ge(rhs.coin)
+        } else {
+            panic!("Cannot compare two different types of currency.");
+        }
     }
 }
 
@@ -297,3 +288,8 @@ impl Copy for Currency { }
 impl Clone for Currency {
     fn clone(&self) -> Currency { *self }
 }
+
+// TODO
+// - neg
+// - rem
+// - hash
