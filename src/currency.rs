@@ -2,12 +2,13 @@ use std::{ops, cmp, fmt, str, error};
 use std::marker::Copy;
 
 use super::num::bigint::BigInt;
+use super::num::Zero;
 
 /// Represents currency through an optional symbol and amount of coin.
 ///
 /// Every 100 coins results in a banknote. (100 is formatted as 1.00)
 /// The currency will be formatted as such: `Currency(Some('$'), 432)` ==> "$4.32"
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Currency {
     symbol: Option<char>,
     coin: BigInt
@@ -29,10 +30,27 @@ impl Currency {
             coin: BigInt::zero()
         }
     }
+
+    // TODO
+    // - to_str with comma delimiting
+    // - to_str with euro delimiting
 }
 
 /// Allows any Currency to be displayed as a String. The format includes no comma delimiting with a
 /// two digit precision decimal.
+///
+/// # Formats
+///
+/// ## Arguments
+///
+/// `#` display commas
+///
+/// ## Examples
+///
+/// {} => No commas, rounded to nearest dollar.
+/// {:#} => Commas, rounded to nearest dollar.
+/// {:#.2} => Commas, with decimal point. (values greater than two will route to this fmt as well)
+/// {:.1} => No commas, rounded to nearest ten cents.
 ///
 /// # Examples
 /// ```
@@ -41,96 +59,110 @@ impl Currency {
 /// assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
 /// assert!(Currency(None, 1210).to_string() == "12.10");
 ///
-/// println!("{}", Currency(Some('$'), 100099));
+/// println!("{:#}", Currency(Some('$'), 100099)); // $1,000
+/// println!("{:.2}", Currency(Some('$'), 100099)); //
+/// println!("{:.1}", Currency(Some('$'), 100099));
+/// println!("{:.0}", Currency(Some('$'), 100099)); //
 /// ```
 /// The last line prints:
 /// ```text
 /// "$1000.99"
 /// ```
-impl fmt::Display for Currency {
+impl fmt::Display for Currency { // TODO TODO TODO TODO
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let decimal = format!("{:.2}", (self.1 as f32 / 100.0));
-        match self.0 {
-            Some(c) => write!(f, "{}{}", c, decimal),
-            None    => write!(f, "{}", decimal),
+        let one_hundred = BigInt::from(100);
+        // TODO cases
+        let cents = &self.coin % one_hundred;
+        let dollars = &self.coin - &cents;
+        match self.symbol {
+            Some(c) => write!(f, "{}{}.{}", c, dollars, cents),
+            None    => write!(f, "{}.{}", dollars, cents),
         }
     }
 }
 
-impl str::FromStr for Currency {
-    type Err = ParseCurrencyError;
-
-    /// Uses a Regular Expression to parse a string literal (&str) and attempts to turn it into a
-    /// currency. Returns `Some(Currency)` on a successful conversion, otherwise `None`.
-    ///
-    /// If the currency is intended to be a negative amount, ensure the '-' is the first character
-    /// in the string.
-    /// The Regex recognizes European notation (€1,00)
-    ///
-    /// # Examples
-    /// ```
-    /// use currency::Currency;
-    ///
-    /// assert!(Currency::from_string("$4.32")  == Some(Currency(Some('$'), 432)));
-    /// assert!(Currency::from_string("-$4.32") == Some(Currency(Some('$'), -432)));
-    /// assert!(Currency::from_string("424.44") == Some(Currency(None, 42444)));
-    /// assert!(Currency::from_string("£12,00") == Some(Currency(Some('£'), 1200)));
-    /// assert!(Currency::from_string("¥12")    == Some(Currency(Some('¥'), 1200)));
-    /// ```
-    fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
-        use regex::Regex;
-
-        // Shadow s with a trimmed version
-        let s = s.trim();
-        let re =
-        Regex::new(r"(?:\b|(-)?)(\p{Sc})?((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b")
-        .unwrap();
-
-        if !re.is_match(s) {
-            return None;
-        }
-
-        // Used to negate the final result if the regex matches a negative
-        let mut multiplier = 1;
-        let mut sign: Option<char> = None;
-        let mut coin_str: String = "".to_string();
-
-        // If anyone's looking at this and knows how to do this without a loop, fork this.
-        for cap in re.captures_iter(s) {
-            if cap.at(0).unwrap_or("") != s {
-                return None;
-            }
-
-            if cap.at(1).is_some() {
-                multiplier = -1;
-            }
-
-            if cap.at(2).is_some() {
-                if multiplier < 0 {
-                    sign = Some(s.chars().skip(1).next().unwrap());
-                } else {
-                    sign = Some(s.chars().next().unwrap());
-                }
-            }
-            coin_str = cap.at(3).unwrap().replace(".", "").replace(",", "")
-            + cap.at(4).unwrap_or("00");
-
-            break;
-        }
-
-        if let Ok(coin) = coin_str.parse::<i64>(){
-            return Some(Currency(sign, multiplier * coin));
-        }
-        None
-    }
-}
+// impl str::FromStr for Currency {
+//     type Err = ParseCurrencyError;
+//
+//     /// Uses a Regular Expression to parse a string literal (&str) and attempts to turn it into a
+//     /// currency. Returns `Some(Currency)` on a successful conversion, otherwise `None`.
+//     ///
+//     /// If the currency is intended to be a negative amount, ensure the '-' is the first character
+//     /// in the string.
+//     /// The Regex recognizes European notation (€1,00)
+//     ///
+//     /// # Examples
+//     /// ```
+//     /// use currency::Currency;
+//     ///
+//     /// assert!(Currency::from_string("$4.32")  == Some(Currency(Some('$'), 432)));
+//     /// assert!(Currency::from_string("-$4.32") == Some(Currency(Some('$'), -432)));
+//     /// assert!(Currency::from_string("424.44") == Some(Currency(None, 42444)));
+//     /// assert!(Currency::from_string("£12,00") == Some(Currency(Some('£'), 1200)));
+//     /// assert!(Currency::from_string("¥12")    == Some(Currency(Some('¥'), 1200)));
+//     /// ```
+//     fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
+//         use regex::Regex;
+//
+//         // Shadow s with a trimmed version
+//         let s = s.trim();
+//         let re =
+//         Regex::new(r"(?:\b|(-)?)(\p{Sc})?((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b")
+//         .unwrap();
+//
+//         if !re.is_match(s) {
+//             return None;
+//         }
+//
+//         // Used to negate the final result if the regex matches a negative
+//         let mut multiplier = 1;
+//         let mut sign: Option<char> = None;
+//         let mut coin_str: String = "".to_string();
+//
+//         // If anyone's looking at this and knows how to do this without a loop, fork this.
+//         for cap in re.captures_iter(s) {
+//             if cap.at(0).unwrap_or("") != s {
+//                 return None;
+//             }
+//
+//             if cap.at(1).is_some() {
+//                 multiplier = -1;
+//             }
+//
+//             if cap.at(2).is_some() {
+//                 if multiplier < 0 {
+//                     sign = Some(s.chars().skip(1).next().unwrap());
+//                 } else {
+//                     sign = Some(s.chars().next().unwrap());
+//                 }
+//             }
+//             coin_str = cap.at(3).unwrap().replace(".", "").replace(",", "")
+//             + cap.at(4).unwrap_or("00");
+//
+//             break;
+//         }
+//
+//         if let Ok(coin) = coin_str.parse::<i64>(){
+//             return Some(Currency(sign, multiplier * coin));
+//         }
+//         None
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ParseCurrencyError;
+pub struct ParseCurrencyError {
+    source: String
+}
+
+impl fmt::Display for ParseCurrencyError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Could not parse {} into a currency.", self.source)
+    }
+}
 
 impl error::Error for ParseCurrencyError {
     fn description(&self) -> &str {
-        "failed to parse currency"
+        "Failed to parse currency"
     }
 }
 
@@ -160,11 +192,11 @@ impl fmt::LowerExp for Currency {
 /// symbol.
 impl PartialEq<Currency> for Currency {
     fn eq(&self, rhs: &Currency) -> bool {
-        self.0 == rhs.0 && self.1 == rhs.1
+        self.symbol == rhs.symbol && self.coin == rhs.coin
     }
 
     fn ne(&self, rhs: &Currency) -> bool {
-        self.0 != rhs.0 || self.1 != rhs.1
+        self.symbol != rhs.symbol || self.coin != rhs.coin
     }
 }
 
@@ -178,14 +210,15 @@ impl PartialEq<Currency> for Currency {
 impl PartialOrd<Currency> for Currency {
     fn partial_cmp(&self, rhs: &Currency) -> Option<cmp::Ordering> {
         if self.symbol == rhs.symbol {
-            self.coin.partial_cmp(rhs.coin)
+            self.coin.partial_cmp(&rhs.coin)
+        } else {
+            None
         }
-        None
     }
 
     fn lt(&self, rhs: &Currency) -> bool {
         if self.symbol == rhs.symbol {
-            self.coin.lt(rhs.coin)
+            self.coin.lt(&rhs.coin)
         } else {
             panic!("Cannot compare two different types of currency.");
         }
@@ -193,7 +226,7 @@ impl PartialOrd<Currency> for Currency {
 
     fn le(&self, rhs: &Currency) -> bool {
         if self.symbol == rhs.symbol {
-            self.coin.le(rhs.coin)
+            self.coin.le(&rhs.coin)
         } else {
             panic!("Cannot compare two different types of currency.");
         }
@@ -201,7 +234,7 @@ impl PartialOrd<Currency> for Currency {
 
     fn gt(&self, rhs: &Currency) -> bool {
         if self.symbol == rhs.symbol {
-            self.coin.gt(rhs.coin)
+            self.coin.gt(&rhs.coin)
         } else {
             panic!("Cannot compare two different types of currency.");
         }
@@ -209,7 +242,7 @@ impl PartialOrd<Currency> for Currency {
 
     fn ge(&self, rhs: &Currency) -> bool {
         if self.symbol == rhs.symbol {
-            self.coin.ge(rhs.coin)
+            self.coin.ge(&rhs.coin)
         } else {
             panic!("Cannot compare two different types of currency.");
         }
@@ -220,14 +253,17 @@ impl PartialOrd<Currency> for Currency {
 ///
 /// # Panics
 /// Panics if the two addends are different types of currency, as denoted by the Currency's symbol.
-impl Add for Currency {
+impl ops::Add for Currency {
     type Output = Currency;
 
     fn add(self, rhs: Currency) -> Currency {
-        if self.0 == rhs.0 {
-            Currency(self.0, self.1 + rhs.1)
+        if self.symbol == rhs.symbol {
+            Currency {
+                symbol: self.symbol,
+                coin: self.coin.add(rhs.coin)
+            }
         } else {
-            panic!("Cannot add two different types of currency!");
+            panic!("Cannot add two different types of currency.");
         }
     }
 }
@@ -237,14 +273,17 @@ impl Add for Currency {
 /// # Panics
 /// Panics if the minuend and subtrahend are two different types of currency, as denoted by the
 /// Currency's symbol.
-impl Sub for Currency {
+impl ops::Sub for Currency {
     type Output = Currency;
 
     fn sub(self, rhs: Currency) -> Currency {
-        if self.0 == rhs.0 {
-            Currency(self.0, self.1 - rhs.1)
+        if self.symbol == rhs.symbol {
+            Currency {
+                symbol: self.symbol,
+                coin: self.coin.sub(rhs.coin)
+            }
         } else {
-            panic!("Cannot subtract two different types of currency!");
+            panic!("Cannot subtract two different types of currency.");
         }
     }
 }
@@ -252,41 +291,34 @@ impl Sub for Currency {
 /// Overloads the '*' operator for Currency objects.
 ///
 /// Allows a Currency to be multiplied by an i64.
-impl Mul<i64> for Currency {
+impl ops::Mul<i64> for Currency {
     type Output = Currency;
 
     fn mul(self, rhs: i64) -> Currency {
-        Currency(self.0, self.1 * rhs)
+        Currency {
+            symbol: self.symbol,
+            coin: self.coin.mul(BigInt::from(rhs))
+        }
     }
 }
+// TODO mul for each num type, both ways
 
-/// Overloads the '*' operator for i64.
+/// Overloads the '*' operator for Currency objects.
 ///
-/// Allows an i64 to be multiplied by a Currency.
-/// Completes the commutative property for i64 multiplied by Currency.
-impl Mul<Currency> for i64 {
+/// Allows a Currency to be multiplied by an i64.
+impl ops::Mul<Currency> for Currency {
     type Output = Currency;
 
     fn mul(self, rhs: Currency) -> Currency {
-        Currency(rhs.0, rhs.1 * self)
+        if self.symbol == rhs.symbol {
+            Currency {
+                symbol: self.symbol,
+                coin: self.coin.mul(rhs.coin)
+            }
+        } else {
+            panic!("Cannot multiply two different types of currency.");
+        }
     }
-}
-
-/// Overloads the '/' operator for Currency objects.
-///
-/// Allows a Currency to be divided by an i64.
-impl Div<i64> for Currency {
-    type Output = Currency;
-
-    fn div(self, rhs: i64) -> Currency {
-        Currency(self.0, self.1 / rhs)
-    }
-}
-
-/// Allows Currencies to be copied, rather than using move semantics.
-impl Copy for Currency { }
-impl Clone for Currency {
-    fn clone(&self) -> Currency { *self }
 }
 
 // TODO
