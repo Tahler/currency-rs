@@ -19,12 +19,11 @@ impl Currency {
     ///
     /// # Examples
     /// ```
-    /// extern crate currency;
     /// use currency::Currency;
     ///
-    /// let mut c = Currency::new();
-    /// println!("{}", c); // "0"
-    /// println!("{:.2}", c); // "0.00"
+    /// let c = Currency::new();
+//    /// println!("{}", c); // "0"
+//TODO    /// println!("{:.2}", c); // "0.00"
     /// ```
     pub fn new() -> Self {
         Currency {
@@ -32,63 +31,6 @@ impl Currency {
             coin: BigInt::zero()
         }
     }
-
-    // TODO
-    // - to_str with comma delimiting
-    // - to_str with euro delimiting
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// fmt trait implementations
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-/// Allows any Currency to be displayed as a String. The format includes no comma delimiting with a
-/// two digit precision decimal.
-///
-/// # Formats
-///
-/// ## Arguments
-///
-/// `#` display commas
-///
-/// ## Examples
-///
-/// {} => No commas, rounded to nearest dollar.
-/// {:#} => Commas, rounded to nearest dollar.
-/// {:#.2} => Commas, with decimal point. (values greater than two will route to this fmt as well)
-/// {:.1} => No commas, rounded to nearest ten cents.
-///
-/// # Examples
-/// ```
-/// use currency::Currency;
-///
-/// assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
-/// assert!(Currency(None, 1210).to_string() == "12.10");
-///
-/// println!("{:#}", Currency(Some('$'), 100099)); // $1,000
-/// println!("{:.2}", Currency(Some('$'), 100099)); //
-/// println!("{:.1}", Currency(Some('$'), 100099));
-/// println!("{:.0}", Currency(Some('$'), 100099)); //
-/// ```
-/// The last line prints:
-/// ```text
-/// "$1000.99"
-/// ```
-impl fmt::Display for Currency { // TODO TODO TODO TODO
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let one_hundred = BigInt::from(100);
-        // TODO cases
-        let cents = &self.coin % one_hundred;
-        let dollars = &self.coin - &cents;
-        match self.symbol {
-            Some(c) => write!(f, "{}{}.{}", c, dollars, cents),
-            None    => write!(f, "{}.{}", dollars, cents),
-        }
-    }
-}
-
-impl str::FromStr for Currency {
-    type Err = ParseCurrencyError;
 
     /// Parses a string literal (&str) and attempts to convert it into a currency. Returns
     /// `Ok(Currency)` on a successful conversion, otherwise `Err(ParseCurrencyError)`.
@@ -100,25 +42,22 @@ impl str::FromStr for Currency {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
     /// use currency::Currency;
     ///
-    /// assert!(Currency::from_str("$4.32")  == Some(Currency { symbol: Some('$'), coin: BigInt::from(432))));
-    /// assert!(Currency::from_str("-$4.32") == Some(Currency { symbol: Some('$'), coin: BigInt::from(-432))));
-    /// assert!(Currency::from_str("424.44") == Some(Currency { symbol: None, coin: BigInt::from(42444))));
-    /// assert!(Currency::from_str("£12,00") == Some(Currency { symbol: Some('£'), coin: BigInt::from(1200))));
-    /// assert!(Currency::from_str("¥12")    == Some(Currency { symbol: Some('¥'), coin: BigInt::from(1200))));
+    /// let c = Currency::from_str("$4.32");
     /// ```
-    fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
+    pub fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
+        use std::str::FromStr;
         use num::bigint::{BigUint, Sign};
 
         let err = ParseCurrencyError::new(s);
 
         // look for any '-'
         let sign = if s.contains('-') {
-            Sign::Plus
-        } else {
             Sign::Minus
+        } else {
+            Sign::Plus
         };
         // find all digits
         let unsigned_digits: String = s.chars().filter(|c| c.is_digit(10)).collect();
@@ -144,6 +83,82 @@ impl str::FromStr for Currency {
         };
 
         Ok(currency)
+    }
+
+    // TODO
+    // - to_str with comma delimiting
+    // - to_str with euro delimiting
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// fmt trait implementations
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// /// Allows any Currency to be displayed as a String. The format includes no comma delimiting with a
+// /// two digit precision decimal.
+// ///
+// /// # Formats
+// ///
+// /// ## Arguments
+// ///
+// /// `#` display commas
+// ///
+// /// ## Examples
+// ///
+// /// {} => No commas, rounded to nearest dollar.
+// /// {:#} => Commas, rounded to nearest dollar.
+// /// {:#.2} => Commas, with decimal point. (values greater than two will route to this fmt as well)
+// /// {:.1} => No commas, rounded to nearest ten cents.
+// ///
+// /// # Examples
+// /// ```
+// /// use currency::Currency;
+// ///
+// /// assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
+// /// assert!(Currency(None, 1210).to_string() == "12.10");
+// ///
+// /// println!("{:#}", Currency(Some('$'), 100099)); // $1,000
+// /// println!("{:.2}", Currency(Some('$'), 100099)); //
+// /// println!("{:.1}", Currency(Some('$'), 100099));
+// /// println!("{:.0}", Currency(Some('$'), 100099)); //
+// /// ```
+// /// The last line prints:
+// /// ```text
+// /// "$1000.99"
+// /// ```
+// impl fmt::Display for Currency { // TODO TODO TODO TODO
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         let one_hundred = BigInt::from(100);
+//         // TODO cases
+//         let cents = &self.coin % one_hundred;
+//         let dollars = &self.coin - &cents;
+//         match self.symbol {
+//             Some(c) => write!(f, "{}{}.{}", c, dollars, cents),
+//             None    => write!(f, "{}.{}", dollars, cents),
+//         }
+//     }
+// }
+
+impl str::FromStr for Currency {
+    type Err = ParseCurrencyError;
+
+    /// Parses a string literal (&str) and attempts to convert it into a currency. Returns
+    /// `Ok(Currency)` on a successful conversion, otherwise `Err(ParseCurrencyError)`.
+    ///
+    /// If the currency is intended to be a negative amount, ensure the '-' lies before the digits.
+    ///
+    /// All non-digit characters in the string are ignored except for the starting '-' and
+    /// optional symbol.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use currency::Currency;
+    ///
+    /// let c = Currency::from_str("$4.32");
+    /// ```
+    fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
+        Currency::from_str(s)
     }
 }
 
@@ -172,24 +187,25 @@ impl error::Error for ParseCurrencyError {
     }
 }
 
-/// Identical to the implementation of Display, but replaces the "." with a ",". Access this
-/// formating by using "{:e}".
-///
-/// # Examples
-/// ```
-/// use currency::Currency;
-///
-/// println!("{:e}", Currency(Some('£'), 100099));
-/// ```
-/// The last line prints the following:
-/// ```text
-/// "£1000,99"
-/// ```
-impl fmt::LowerExp for Currency {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", format!("{}", self).replace(".", ","))
-    }
-}
+// TODO
+// /// Identical to the implementation of Display, but replaces the "." with a ",". Access this
+// /// formating by using "{:e}".
+// ///
+// /// # Examples
+// /// ```
+// /// use currency::Currency;
+// ///
+// /// println!("{:e}", Currency(Some('£'), 100099));
+// /// ```
+// /// The last line prints the following:
+// /// ```text
+// /// "£1000,99"
+// /// ```
+// impl fmt::LowerExp for Currency {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(f, "{}", format!("{}", self).replace(".", ","))
+//     }
+// }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // cmp trait implementations
@@ -474,6 +490,62 @@ mod tests {
     use num::bigint::BigInt;
 
     #[test]
+    fn test_from_str() {
+        use std::str::FromStr;
+
+        let a1 = Currency { symbol: Some('$'), coin: BigInt::from(1210) };
+        let b1 = Currency::from_str("$12.10");
+        assert_eq!(a1, b1.unwrap());
+
+        // let a2 = Currency { symbol: Some('$'), coin: BigInt::from(1200) };
+        // let b2 = Currency::from("$12");
+        // assert!(a2 == b2.unwrap());
+        //
+    	// let a3 = Currency { symbol: None, coin: BigInt::from(1200099) };
+        // let b3 = Currency::from("12,000.99");
+        // assert!(a3 == b3.unwrap());
+        //
+    	// let a4 = Currency { symbol: Some('£'), coin: BigInt::from(1200099) };
+        // let b4 = Currency::from("£12.000,99");
+        // assert!(a4 == b4.unwrap());
+        //
+    	// // Negatives
+    	// let a5 = Currency { symbol: Some('$'), coin: BigInt::from(-1210) };
+        // let b5 = Currency::from("-$12.10");
+    	// println!("{:?}, {:?}", a1, b1);
+        // assert!(a5 == b5.unwrap());
+        //
+        // let a6 = Currency { symbol: Some('$'), coin: BigInt::from(-1200) };
+        // let b6 = Currency::from("-$12");
+        // assert!(a6 == b6.unwrap());
+        //
+    	// let a7 = Currency { symbol: None, coin: BigInt::from(-1200099) };
+        // let b7 = Currency::from("-12,000.99");
+        // assert!(a7 == b7.unwrap());
+        //
+    	// let a8 = Currency { symbol: Some('£'), coin: BigInt::from(-1200099) };
+        // let b8 = Currency::from("-£12.000,99");
+        // assert!(a8 == b8.unwrap());
+        //
+        // // Zeros
+    	// let a9 = Currency { symbol: Some('€'), coin: BigInt::from(0) };
+        // let b9 = Currency::from("€0");
+        // assert!(a9 == b9.unwrap());
+        //
+    	// let a10 = Currency { symbol: None, coin: BigInt::from(0) };
+        // let b10 = Currency::from("000");
+        // assert!(a10 == b10.unwrap());
+        //
+        // let a11 = Currency { symbol: Some('€'), coin: BigInt::from(50) };
+        // let b11 = Currency::from("€0,50");
+        // assert!(a11 == b11.unwrap());
+        //
+        // let a12 = Currency { symbol: Some('€'), coin: BigInt::from(-50) };
+        // let b12 = Currency::from("-€0.50");
+        // assert!(a12 == b12.unwrap());
+    }
+
+    #[test]
     fn test_eq() {
         let a = Currency { symbol: Some('$'), coin: BigInt::from(1210) };
         let b = Currency { symbol: Some('$'), coin: BigInt::from(1210) };
@@ -525,59 +597,7 @@ mod tests {
         assert!(&a + &b == &b + &a);
     }
 
-    // #[test]
-    // fn parse_works() {
-    //     let a1 = Currency { symbol: Some('$'), coin: BigInt::from(1210) };
-    //     let b1 = Currency::from("$12.10");
-    //     assert!(a1 == b1.unwrap());
-    //
-    //     let a2 = Currency { symbol: Some('$'), coin: BigInt::from(1200) };
-    //     let b2 = Currency::from("$12");
-    //     assert!(a2 == b2.unwrap());
-    //
-    // 	let a3 = Currency { symbol: None, coin: BigInt::from(1200099) };
-    //     let b3 = Currency::from("12,000.99");
-    //     assert!(a3 == b3.unwrap());
-    //
-    // 	let a4 = Currency { symbol: Some('£'), coin: BigInt::from(1200099) };
-    //     let b4 = Currency::from("£12.000,99");
-    //     assert!(a4 == b4.unwrap());
-    //
-    // 	// Negatives
-    // 	let a5 = Currency { symbol: Some('$'), coin: BigInt::from(-1210) };
-    //     let b5 = Currency::from("-$12.10");
-    // 	println!("{:?}, {:?}", a1, b1);
-    //     assert!(a5 == b5.unwrap());
-    //
-    //     let a6 = Currency { symbol: Some('$'), coin: BigInt::from(-1200) };
-    //     let b6 = Currency::from("-$12");
-    //     assert!(a6 == b6.unwrap());
-    //
-    // 	let a7 = Currency { symbol: None, coin: BigInt::from(-1200099) };
-    //     let b7 = Currency::from("-12,000.99");
-    //     assert!(a7 == b7.unwrap());
-    //
-    // 	let a8 = Currency { symbol: Some('£'), coin: BigInt::from(-1200099) };
-    //     let b8 = Currency::from("-£12.000,99");
-    //     assert!(a8 == b8.unwrap());
-    //
-    //     // Zeros
-    // 	let a9 = Currency { symbol: Some('€'), coin: BigInt::from(0) };
-    //     let b9 = Currency::from("€0");
-    //     assert!(a9 == b9.unwrap());
-    //
-    // 	let a10 = Currency { symbol: None, coin: BigInt::from(0) };
-    //     let b10 = Currency::from("000");
-    //     assert!(a10 == b10.unwrap());
-    //
-    //     let a11 = Currency { symbol: Some('€'), coin: BigInt::from(50) };
-    //     let b11 = Currency::from("€0,50");
-    //     assert!(a11 == b11.unwrap());
-    //
-    //     let a12 = Currency { symbol: Some('€'), coin: BigInt::from(-50) };
-    //     let b12 = Currency::from("-€0.50");
-    //     assert!(a12 == b12.unwrap());
-    // }
+
     //
     // #[test]
     // fn display_works() {
