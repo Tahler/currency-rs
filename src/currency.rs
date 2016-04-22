@@ -8,7 +8,7 @@ use super::num::Zero;
 /// Every 100 coins represents a banknote. (coin: 100 => 1.00)
 /// A currency is formatted by default as such:
 /// `Currency { symbol: Some('$'), coin: 432 }` => "$4.32"
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Default)]
 pub struct Currency {
     symbol: Option<char>,
     coin: BigInt
@@ -37,6 +37,10 @@ impl Currency {
     // - to_str with comma delimiting
     // - to_str with euro delimiting
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// fmt trait implementations
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// Allows any Currency to be displayed as a String. The format includes no comma delimiting with a
 /// two digit precision decimal.
@@ -187,18 +191,22 @@ impl fmt::LowerExp for Currency {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// cmp trait implementations
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 /// Overloads the '==' operator for Currency objects.
 ///
 /// # Panics
 /// Panics if the two comparators are different types of currency, as denoted by the Currency's
 /// symbol.
 impl PartialEq<Currency> for Currency {
-    fn eq(&self, rhs: &Currency) -> bool {
-        self.symbol == rhs.symbol && self.coin == rhs.coin
+    fn eq(&self, other: &Currency) -> bool {
+        self.symbol == other.symbol && self.coin == other.coin
     }
 
-    fn ne(&self, rhs: &Currency) -> bool {
-        self.symbol != rhs.symbol || self.coin != rhs.coin
+    fn ne(&self, other: &Currency) -> bool {
+        self.symbol != other.symbol || self.coin != other.coin
     }
 }
 
@@ -210,112 +218,136 @@ impl PartialEq<Currency> for Currency {
 /// Panics if the two comparators are different types of currency, as denoted by
 /// the Currency's symbol.
 impl PartialOrd<Currency> for Currency {
-    fn partial_cmp(&self, rhs: &Currency) -> Option<cmp::Ordering> {
-        if self.symbol == rhs.symbol {
-            self.coin.partial_cmp(&rhs.coin)
+    fn partial_cmp(&self, other: &Currency) -> Option<cmp::Ordering> {
+        if self.symbol == other.symbol {
+            self.coin.partial_cmp(&other.coin)
         } else {
             None
         }
     }
 
-    fn lt(&self, rhs: &Currency) -> bool {
-        if self.symbol == rhs.symbol {
-            self.coin.lt(&rhs.coin)
+    fn lt(&self, other: &Currency) -> bool {
+        if self.symbol == other.symbol {
+            self.coin.lt(&other.coin)
         } else {
             panic!("Cannot compare two different types of currency.");
         }
     }
 
-    fn le(&self, rhs: &Currency) -> bool {
-        if self.symbol == rhs.symbol {
-            self.coin.le(&rhs.coin)
+    fn le(&self, other: &Currency) -> bool {
+        if self.symbol == other.symbol {
+            self.coin.le(&other.coin)
         } else {
             panic!("Cannot compare two different types of currency.");
         }
     }
 
-    fn gt(&self, rhs: &Currency) -> bool {
-        if self.symbol == rhs.symbol {
-            self.coin.gt(&rhs.coin)
+    fn gt(&self, other: &Currency) -> bool {
+        if self.symbol == other.symbol {
+            self.coin.gt(&other.coin)
         } else {
             panic!("Cannot compare two different types of currency.");
         }
     }
 
-    fn ge(&self, rhs: &Currency) -> bool {
-        if self.symbol == rhs.symbol {
-            self.coin.ge(&rhs.coin)
+    fn ge(&self, other: &Currency) -> bool {
+        if self.symbol == other.symbol {
+            self.coin.ge(&other.coin)
         } else {
             panic!("Cannot compare two different types of currency.");
         }
     }
 }
 
-/// Overloads the '+' operator for Currency objects.
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// ops trait implementations
+// macros copied from bigint: http://rust-num.github.io/num/src/num_bigint/bigint/src/lib.rs.html
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+macro_rules! impl_all_trait_combinations_for_currency {
+    ($module:ident::$imp:ident, $method:ident) => {
+        impl<'a, 'b> $module::$imp<&'b Currency> for &'a Currency {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: &'b Currency) -> Currency {
+                if self.symbol == other.symbol {
+                    Currency {
+                        symbol: self.symbol.clone(),
+                        coin: self.coin.clone().$method(other.coin.clone())
+                    }
+                } else {
+                    panic!("Cannot do arithmetic on two different types of currency.");
+                }
+            }
+        }
+
+        impl<'a> $module::$imp<Currency> for &'a Currency {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: Currency) -> Currency {
+                if self.symbol == other.symbol {
+                    Currency {
+                        symbol: self.symbol.clone(),
+                        coin: self.coin.clone().$method(other.coin)
+                    }
+                } else {
+                    panic!("Cannot do arithmetic on two different types of currency.");
+                }
+            }
+        }
+
+        impl<'a> $module::$imp<&'a Currency> for Currency {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: &'a Currency) -> Currency {
+                if self.symbol == other.symbol {
+                    Currency {
+                        symbol: self.symbol,
+                        coin: self.coin.$method(other.coin.clone())
+                    }
+                } else {
+                    panic!("Cannot do arithmetic on two different types of currency.");
+                }
+            }
+        }
+
+        impl $module::$imp<Currency> for Currency {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: Currency) -> Currency {
+                if self.symbol == other.symbol {
+                    Currency {
+                        symbol: self.symbol,
+                        coin: self.coin.$method(other.coin)
+                    }
+                } else {
+                    panic!("Cannot do arithmetic on two different types of currency.");
+                }
+            }
+        }
+
+    }
+}
+
+impl_all_trait_combinations_for_currency!(ops::Add, add);
+impl_all_trait_combinations_for_currency!(ops::Sub, sub);
+
+/// Overloads the '*' operator between two borrowed Currency objects.
 ///
 /// # Panics
-/// Panics if the two addends are different types of currency, as denoted by the Currency's symbol.
-impl ops::Add for Currency {
+/// Panics if the factors are two different types of currency, as denoted by the Currency's symbol.
+impl<'a, 'b> ops::Mul<&'b Currency> for &'a Currency {
     type Output = Currency;
 
-    fn add(self, rhs: Currency) -> Currency {
-        if self.symbol == rhs.symbol {
+    fn mul(self, other: &Currency) -> Currency {
+        if self.symbol == other.symbol {
             Currency {
                 symbol: self.symbol,
-                coin: self.coin.add(rhs.coin)
-            }
-        } else {
-            panic!("Cannot add two different types of currency.");
-        }
-    }
-}
-
-/// Overloads the '-' operator for Currency objects.
-///
-/// # Panics
-/// Panics if the minuend and subtrahend are two different types of currency, as denoted by the
-/// Currency's symbol.
-impl ops::Sub for Currency {
-    type Output = Currency;
-
-    fn sub(self, rhs: Currency) -> Currency {
-        if self.symbol == rhs.symbol {
-            Currency {
-                symbol: self.symbol,
-                coin: self.coin.sub(rhs.coin)
-            }
-        } else {
-            panic!("Cannot subtract two different types of currency.");
-        }
-    }
-}
-
-/// Overloads the '*' operator for Currency objects.
-///
-/// Allows a Currency to be multiplied by an i64.
-impl ops::Mul<i64> for Currency {
-    type Output = Currency;
-
-    fn mul(self, rhs: i64) -> Currency {
-        Currency {
-            symbol: self.symbol,
-            coin: self.coin.mul(BigInt::from(rhs))
-        }
-    }
-}
-// TODO mul for each num type, both ways
-
-/// Overloads the '*' operator for Currency objects.
-///
-/// Allows a Currency to be multiplied by an i64.
-impl ops::Mul<Currency> for Currency {
-    type Output = Currency;
-
-    fn mul(self, rhs: Currency) -> Currency {
-        if self.symbol == rhs.symbol {
-            Currency {
-                symbol: self.symbol,
-                coin: self.coin.mul(rhs.coin)
+                coin: self.coin.clone().mul(other.coin.clone())
             }
         } else {
             panic!("Cannot multiply two different types of currency.");
@@ -323,10 +355,118 @@ impl ops::Mul<Currency> for Currency {
     }
 }
 
+/// Overloads the '*' operator between a borrowed Currency object and an owned one.
+///
+/// # Panics
+/// Panics if the factors are two different types of currency, as denoted by the Currency's symbol.
+impl<'a> ops::Mul<Currency> for &'a Currency {
+    type Output = Currency;
+
+    fn mul(self, other: Currency) -> Currency {
+        if self.symbol == other.symbol {
+            Currency {
+                symbol: self.symbol,
+                coin: self.coin.clone().mul(other.coin)
+            }
+        } else {
+            panic!("Cannot multiply two different types of currency.");
+        }
+    }
+}
+
+/// Overloads the '*' operator between an owned Currency object and a borrowed one.
+///
+/// # Panics
+/// Panics if the factors are two different types of currency, as denoted by the Currency's symbol.
+impl<'a> ops::Mul<&'a Currency> for Currency {
+    type Output = Currency;
+
+    fn mul(self, other: &Currency) -> Currency {
+        if self.symbol == other.symbol {
+            Currency {
+                symbol: self.symbol,
+                coin: self.coin.mul(other.coin.clone())
+            }
+        } else {
+            panic!("Cannot multiply two different types of currency.");
+        }
+    }
+}
+
+/// Overloads the '*' operator between two owned Currency objects.
+///
+/// # Panics
+/// Panics if the factors are two different types of currency, as denoted by the Currency's symbol.
+impl ops::Mul<Currency> for Currency {
+    type Output = Currency;
+
+    fn mul(self, other: Currency) -> Currency {
+        if self.symbol == other.symbol {
+            Currency {
+                symbol: self.symbol,
+                coin: self.coin.mul(other.coin)
+            }
+        } else {
+            panic!("Cannot multiply two different types of currency.");
+        }
+    }
+}
+
+// /// Overloads the '*' operator between a Currency object and an Into<BigInt>.
+// ///
+// /// Allows a Currency to be multiplied by any type that can be converted to a BigInt.
+// impl<N: Into<BigInt>> ops::Mul<N> for Currency {
+//     type Output = Currency;
+//
+//     fn mul(self, other: N) -> Currency {
+//         Currency {
+//             symbol: self.symbol,
+//             coin: self.coin.mul(BigInt::from(other))
+//         }
+//     }
+// }
+
+/// Overloads the '*' operator between a Currency object and an Into<BigInt>.
+///
+/// Allows a Currency to be multiplied by any type that can be converted to a BigInt.
+// impl<N: Into<BigInt>> ops::Mul<Currency> for N {
+//     type Output = Currency;
+//
+//     fn mul(self, other: N) -> Currency {
+//         // Currency {
+//         //     symbol: self.symbol,
+//         //     coin: self.coin.mul(BigInt::from(other))
+//         // }
+//         Currency::new()
+//     }
+// }
+
+
+// TODO mul for each num type, both ways
+
+// /// Overloads the '/ operator between two owned Currency objects.
+// ///
+// /// # Panics
+// /// Panics if the factors are two different types of currency, as denoted by the Currency's symbol.
+// impl ops::Div<Currency> for Currency {
+//     type Output = BigInt;
+//
+//     fn mul(self, other: Currency) -> Currency {
+//         if self.symbol == other.symbol {
+//             Currency {
+//                 symbol: self.symbol,
+//                 coin: self.coin.mul(other.coin)
+//             }
+//         } else {
+//             panic!("Cannot multiply two different types of currency.");
+//         }
+//     }
+// }
+
+
 // TODO
 // - neg
 // - rem
-// - hash
 
 #[cfg(test)]
 mod tests {
@@ -369,19 +509,21 @@ mod tests {
         assert!(c >= a);
     }
 
-    // #[test]
-    // fn test_commutativity() {
-    //     let x = Currency { symbol: Some('$'), coin: BigInt::from(1206) };
-    //     let y = Currency { symbol: Some('$'), coin: BigInt::from(1143) };
-    //
-    //     assert!(x + y == Currency { symbol: Some('$'), coin: BigInt::from(2349) }
-    //          && y + x == Currency { symbol: Some('$'), coin: BigInt::from(2349) });
-    //     assert!(x - y == Currency { symbol: Some('$'), coin: BigInt::from(63) });
-    //     assert!(y - x == Currency { symbol: Some('$'), coin: BigInt::from(-63) });
-    //     assert!(x * 2 == Currency { symbol: Some('$'), coin: BigInt::from(2412) }
-    //          && 2 * x == Currency { symbol: Some('$'), coin: BigInt::from(2412) });
-    //     assert!(x / 2 == Currency { symbol: Some('$'), coin: BigInt::from(603) });
-    // }
+    #[test]
+    fn test_add() {
+        let a = Currency { symbol: Some('$'), coin: BigInt::from(1211) };
+        let b = Currency { symbol: Some('$'), coin: BigInt::from(1311) };
+        let expected_sum = Currency { symbol: Some('$'), coin: BigInt::from(2522) };
+        let actual_sum = a + b;
+        assert_eq!(expected_sum, actual_sum);
+    }
+
+    #[test]
+    fn test_add_commutative() {
+        let a = Currency { symbol: Some('$'), coin: BigInt::from(1211) };
+        let b = Currency { symbol: Some('$'), coin: BigInt::from(1311) };
+        assert!(&a + &b == &b + &a);
+    }
 
     // #[test]
     // fn parse_works() {
