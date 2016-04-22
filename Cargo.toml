@@ -9,4 +9,5 @@ keywords = ["Currency", "Money"]
 license = "MPL-2.0"
 
 [dependencies]
-regex = "*"
+num = "0.1.32"
+regex = "0.1.41"
