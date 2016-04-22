@@ -23,8 +23,10 @@ impl Currency {
     /// use currency::Currency;
     ///
     /// let mut c = Currency::new();
+    /// println!("{}", c); // "0"
+    /// println!("{:.2}", c); // "0.00"
     /// ```
-    pub fn new() -> Currency {
+    pub fn new() -> Self {
         Currency {
             symbol: None,
             coin: BigInt::zero()
@@ -81,77 +83,77 @@ impl fmt::Display for Currency { // TODO TODO TODO TODO
     }
 }
 
-// impl str::FromStr for Currency {
-//     type Err = ParseCurrencyError;
-//
-//     /// Uses a Regular Expression to parse a string literal (&str) and attempts to turn it into a
-//     /// currency. Returns `Some(Currency)` on a successful conversion, otherwise `None`.
-//     ///
-//     /// If the currency is intended to be a negative amount, ensure the '-' is the first character
-//     /// in the string.
-//     /// The Regex recognizes European notation (€1,00)
-//     ///
-//     /// # Examples
-//     /// ```
-//     /// use currency::Currency;
-//     ///
-//     /// assert!(Currency::from_string("$4.32")  == Some(Currency(Some('$'), 432)));
-//     /// assert!(Currency::from_string("-$4.32") == Some(Currency(Some('$'), -432)));
-//     /// assert!(Currency::from_string("424.44") == Some(Currency(None, 42444)));
-//     /// assert!(Currency::from_string("£12,00") == Some(Currency(Some('£'), 1200)));
-//     /// assert!(Currency::from_string("¥12")    == Some(Currency(Some('¥'), 1200)));
-//     /// ```
-//     fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
-//         use regex::Regex;
-//
-//         // Shadow s with a trimmed version
-//         let s = s.trim();
-//         let re =
-//         Regex::new(r"(?:\b|(-)?)(\p{Sc})?((?:(?:\d{1,3}[\.,])+\d{3})|\d+)(?:[\.,](\d{2}))?\b")
-//         .unwrap();
-//
-//         if !re.is_match(s) {
-//             return None;
-//         }
-//
-//         // Used to negate the final result if the regex matches a negative
-//         let mut multiplier = 1;
-//         let mut sign: Option<char> = None;
-//         let mut coin_str: String = "".to_string();
-//
-//         // If anyone's looking at this and knows how to do this without a loop, fork this.
-//         for cap in re.captures_iter(s) {
-//             if cap.at(0).unwrap_or("") != s {
-//                 return None;
-//             }
-//
-//             if cap.at(1).is_some() {
-//                 multiplier = -1;
-//             }
-//
-//             if cap.at(2).is_some() {
-//                 if multiplier < 0 {
-//                     sign = Some(s.chars().skip(1).next().unwrap());
-//                 } else {
-//                     sign = Some(s.chars().next().unwrap());
-//                 }
-//             }
-//             coin_str = cap.at(3).unwrap().replace(".", "").replace(",", "")
-//             + cap.at(4).unwrap_or("00");
-//
-//             break;
-//         }
-//
-//         if let Ok(coin) = coin_str.parse::<i64>(){
-//             return Some(Currency(sign, multiplier * coin));
-//         }
-//         None
-//     }
-// }
+impl str::FromStr for Currency {
+    type Err = ParseCurrencyError;
+
+    /// Parses a string literal (&str) and attempts to convert it into a currency. Returns
+    /// `Ok(Currency)` on a successful conversion, otherwise `Err(ParseCurrencyError)`.
+    ///
+    /// If the currency is intended to be a negative amount, ensure the '-' lies before the digits.
+    ///
+    /// All non-digit characters in the string are ignored except for the starting '-' and
+    /// optional symbol.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use currency::Currency;
+    ///
+    /// assert!(Currency::from_str("$4.32")  == Some(Currency { symbol: Some('$'), coin: BigInt::from(432))));
+    /// assert!(Currency::from_str("-$4.32") == Some(Currency { symbol: Some('$'), coin: BigInt::from(-432))));
+    /// assert!(Currency::from_str("424.44") == Some(Currency { symbol: None, coin: BigInt::from(42444))));
+    /// assert!(Currency::from_str("£12,00") == Some(Currency { symbol: Some('£'), coin: BigInt::from(1200))));
+    /// assert!(Currency::from_str("¥12")    == Some(Currency { symbol: Some('¥'), coin: BigInt::from(1200))));
+    /// ```
+    fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
+        use num::bigint::{BigUint, Sign};
+
+        let err = ParseCurrencyError::new(s);
+
+        // look for any '-'
+        let sign = if s.contains('-') {
+            Sign::Plus
+        } else {
+            Sign::Minus
+        };
+        // find all digits
+        let unsigned_digits: String = s.chars().filter(|c| c.is_digit(10)).collect();
+        let parse_result = BigUint::from_str(&unsigned_digits);
+        let unsigned_bigint = match parse_result {
+            Ok(int) => int,
+            Err(_) => return Err(err)
+        };
+
+        let coin = BigInt::from_biguint(sign, unsigned_bigint);
+
+        // look for first non '-' symbol
+        let symbols: Vec<char> = s.chars().filter(|c| !c.is_digit(10) && c != &'-').collect();
+        let symbol = if symbols.len() > 1 {
+            Some(symbols[0])
+        } else {
+            None
+        };
+
+        let currency = Currency {
+            symbol: symbol,
+            coin: coin
+        };
+
+        Ok(currency)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParseCurrencyError {
     source: String
+}
+
+impl ParseCurrencyError {
+    fn new(s: &str) -> Self {
+        ParseCurrencyError {
+            source: s.to_string()
+        }
+    }
 }
 
 impl fmt::Display for ParseCurrencyError {
