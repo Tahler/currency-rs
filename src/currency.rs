@@ -1,5 +1,4 @@
 use std::{ops, cmp, fmt, str, error};
-use std::marker::Copy;
 
 use super::num::bigint::BigInt;
 use super::num::Zero;

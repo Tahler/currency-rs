@@ -1,4 +1,6 @@
 ﻿extern crate num;
 extern crate regex;
 
-pub mod currency;
+mod currency;
+
+pub use currency::Currency;
