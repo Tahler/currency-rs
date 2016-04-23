@@ -236,7 +236,7 @@ impl Currency {
 // /// ```text
 // /// "$1000.99"
 // /// ```
-// impl fmt::Display for Currency { // TODO TODO TODO TODO
+// impl fmt::Display for Currency { // TODO
 //     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 //         let one_hundred = BigInt::from(100);
 //         // TODO cases
