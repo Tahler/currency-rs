@@ -1,11 +1,44 @@
-﻿extern crate num;
+// Copyright (c) 2016 Tyler Berry All Rights Reserved.
+//
+// Licensed under the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>.
+// This file may not be copied, modified, or distributed except according to those terms.
 
-// TODO copyright
-// TODO crate level docs
+//! A `Currency` is a combination of an optional character (`Option<char>``) and a big integer
+//! (`BigInt`).
+//!
+//! Common operations are overloaded to make numerical operations easy.
+//!
+//! Perhaps the most useful part of this crate is the `Currency::from_str` function, which can
+//! convert international currency representations such as "$1,000.42" and "£10,99" into a
+//! usable `Currency` instance.
+//!
+// //! //TODO
+// //! ## Example
+// //! ```
+// //! extern crate currency;
+// //!
+// //! fn main() {
+// //!     use currency::Currency;
+// //!
+// //!     let sock_price = Currency::from_str("$11.99");
+// //!     let toothbrush_price = Currency::from_str("$1.99");
+// //!     let subtotal = sock_price + toothbrush_price;
+// //!     let tax_rate = 0.07;
+// //!     let total = subtotal + (subtotal * tax_rate);
+// //!     assert_eq!(total.to_str(), "$14.96")
+// //! }
+// //! ```
+//!
+//! ## Limitations
+//!
+//! This crate cannot lookup conversion data dynamically. It does supply a `convert` function, but
+//! the conversion rates will need to be input by the user.
 
-use std::{ops, cmp, fmt, str, error};
+extern crate num;
 
-use num::bigint::BigInt;
+use std::{ops, cmp, fmt, str};
+
+use num::bigint::{BigInt, ParseBigIntError, Sign};
 use num::Zero;
 
 /// Represents currency through an optional symbol and amount of coin.
@@ -21,20 +54,41 @@ pub struct Currency {
 
 impl Currency {
     /// Creates a blank Currency with no symbol and 0 coin.
-    ///
-    /// # Examples
-    /// ```
-    /// use currency::Currency;
-    ///
-    /// let c = Currency::new();
-//    /// println!("{}", c); // "0"
-//TODO    /// println!("{:.2}", c); // "0.00"
-    /// ```
     pub fn new() -> Self {
         Currency {
             symbol: None,
             coin: BigInt::zero()
         }
+    }
+
+    /// Returns the `Sign` of the `BigInt` holding the coins.
+    pub fn sign(&self) -> Sign {
+        self.coin.sign()
+    }
+
+    /// Returns the number of coins held in the `Currency` as `&BigInt`.
+    ///
+    /// Should you need ownership of the returned `BigInt`, call `clone()` on it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// extern crate num;
+    /// extern crate currency;
+    ///
+    /// fn main() {
+    ///     use num::traits::ToPrimitive;
+    ///     use currency::Currency;
+    ///
+    ///     let c1 = Currency::new();
+    ///     assert_eq!(c1.value().to_u32().unwrap(), 0);
+    ///
+    ///     let c2 = Currency::from_str("$1.42").unwrap();
+    ///     assert_eq!(c2.value().to_u32().unwrap(), 142);
+    /// }
+    /// ```
+    pub fn value(&self) -> &BigInt {
+        &self.coin
     }
 
     /// Parses a string literal (&str) and attempts to convert it into a currency. Returns
@@ -57,7 +111,7 @@ impl Currency {
     /// let c2 = Currency::from_str("$0.10").unwrap();
     /// assert_eq!(c1 + c2, Currency::from_str("$42.42").unwrap());
     /// ```
-    pub fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
+    pub fn from_str(s: &str) -> Result<Currency, ParseBigIntError> {
         use std::str::FromStr;
         use num::bigint::{BigUint, Sign};
 
@@ -69,59 +123,55 @@ impl Currency {
             c == '.' || c == ','
         }
 
-        let err = ParseCurrencyError::new(s);
-
         let mut digits = String::new();
         let mut symbol = None;
         let mut sign = Sign::Plus;
 
-        let mut first_delimiter = None;
         let mut last_delimiter = None;
-        let mut final_streak_len = 0;
+        let mut last_streak_len = 0;
         for c in s.chars() {
             if c == '-' && digits.len() == 0 {
                 sign = Sign::Minus;
             } else if is_delimiter(c) {
-                final_streak_len = 0;
-                if first_delimiter.is_none() {
-                    first_delimiter = Some(c);
-                    last_delimiter = Some(c);
-                } else {
-                    last_delimiter = Some(c);
-                }
+                last_streak_len = 0;
+                last_delimiter = Some(c);
             } else if is_symbol(c) {
                 if symbol.is_none() {
                     symbol = Some(c);
                 }
             } else {
-                final_streak_len += 1;
+                last_streak_len += 1;
                 digits.push(c);
             }
         }
 
-        let parse_result = BigUint::from_str(&digits);
-        let unsigned_bigint = match parse_result {
-            Ok(int) => int,
-            Err(_) => return Err(err)
+        let unsigned_bigint = if digits.len() > 0 {
+            let parse_result = BigUint::from_str(&digits);
+            match parse_result {
+                Ok(int) => int,
+                Err(err) => {
+                    println!("{:?}", digits);
+                    return Err(err)
+                }
+            }
+        } else {
+            BigUint::zero()
         };
         let mut coin = BigInt::from_biguint(sign, unsigned_bigint);
 
         // decimal adjustment
-        if first_delimiter.is_none() { // no decimal at all
+        if last_delimiter.is_none() || last_streak_len == 3 { // no decimal at all
             let big_int_factor = BigInt::from(100);
             coin = coin * big_int_factor;
-        } else if final_streak_len < 3 { // some delimiter with more than three spaces
-            let factor = 10u32.pow(2 - final_streak_len);
+        } else if last_streak_len < 2 { // specifying less cents than needed
+            let factor = 10u32.pow(2 - last_streak_len);
             let big_int_factor = BigInt::from(factor);
             coin = coin * big_int_factor;
-        } else if first_delimiter == last_delimiter {
-            let big_int_factor = BigInt::from(100);
-            coin = coin * big_int_factor;
-        } else if first_delimiter != last_delimiter { // two delimiters with a different last one
-            let divisor = 10u32.pow(final_streak_len - 2);
+        } else if last_streak_len > 2 { // specifying more cents than we can hold
+            let divisor = 10u32.pow(last_streak_len - 2);
             let big_int = BigInt::from(divisor);
             coin = coin / big_int;
-        }
+        } // else the user has valid cents, no adjustment needed
 
         let currency = Currency {
             symbol: symbol,
@@ -134,6 +184,8 @@ impl Currency {
     // TODO
     // - to_str with comma delimiting
     // - to_str with euro delimiting
+    // - conversion with supplied conversion rate
+    // - tax
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -186,37 +238,37 @@ impl Currency {
 // }
 
 impl str::FromStr for Currency {
-    type Err = ParseCurrencyError;
+    type Err = ParseBigIntError;
 
-    fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
+    fn from_str(s: &str) -> Result<Currency, ParseBigIntError> {
         Currency::from_str(s)
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ParseCurrencyError {
-    source: String
-}
-
-impl ParseCurrencyError {
-    fn new(s: &str) -> Self {
-        ParseCurrencyError {
-            source: s.to_string()
-        }
-    }
-}
-
-impl fmt::Display for ParseCurrencyError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Could not parse {} into a currency.", self.source)
-    }
-}
-
-impl error::Error for ParseCurrencyError {
-    fn description(&self) -> &str {
-        "Failed to parse currency"
-    }
-}
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct ParseCurrencyError {
+//     source: String
+// }
+//
+// impl ParseCurrencyError {
+//     fn new(s: &str) -> Self {
+//         ParseCurrencyError {
+//             source: s.to_string()
+//         }
+//     }
+// }
+//
+// impl fmt::Display for ParseCurrencyError {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(f, "Could not parse {} into a currency.", self.source)
+//     }
+// }
+//
+// impl error::Error for ParseCurrencyError {
+//     fn description(&self) -> &str {
+//         "Failed to parse currency"
+//     }
+// }
 
 // TODO
 // /// Identical to the implementation of Display, but replaces the "." with a ",". Access this
@@ -523,87 +575,86 @@ mod tests {
     #[test]
     fn test_from_str() {
         use std::str::FromStr;
+// use num::bigint::BigUint;
+//         BigUint::from_str("01210").unwrap();
 
         let expected = Currency { symbol: Some('$'), coin: BigInt::from(1210) };
-
         let actual = Currency::from_str("$12.10").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("$12.100000").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("$12.1").unwrap();
+        assert_eq!(expected, actual);
+
+        let expected = Currency { symbol: None, coin: BigInt::from(1210) };
+        let actual = Currency::from_str("12.10").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("12.100000").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("12.1").unwrap();
         assert_eq!(expected, actual);
 
         let expected = Currency { symbol: Some('$'), coin: BigInt::from(121000) };
-
         let actual = Currency::from_str("$1210").unwrap();
         assert_eq!(expected, actual);
-
         let actual = Currency::from_str("$1,210").unwrap();
         assert_eq!(expected, actual);
-
         let actual = Currency::from_str("$1,210.00").unwrap();
         assert_eq!(expected, actual);
-
         let actual = Currency::from_str("$1210.").unwrap();
         assert_eq!(expected, actual);
-
-        let actual = Currency::from_str("$1210.0").unwrap();
+        let actual = Currency::from_str("$1,210.0").unwrap();
         assert_eq!(expected, actual);
-
         let actual = Currency::from_str("$1.210,0").unwrap();
         assert_eq!(expected, actual);
 
-        let expected = Currency { symbol: Some('$'), coin: BigInt::from(102000) };
-        let actual = Currency::from_str("$1020.").unwrap();
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(1200099) };
+        let actual = Currency::from_str("$12,000.99").unwrap();
         assert_eq!(expected, actual);
-        // $1,000 = 1,000.00
-        // $1.0,00 = 10.00
-        // 1,000,000.0 = 1,000,000.00
-        // 1,000,000,0 = 1,000,000.00
-        // 1,000,000. = 1,000,000.00
 
-        // let a2 = Currency { symbol: Some('$'), coin: BigInt::from(1200) };
-        // let b2 = Currency::from("$12");
-        // assert!(a2 == b2.unwrap());
-        //
-    	// let a3 = Currency { symbol: None, coin: BigInt::from(1200099) };
-        // let b3 = Currency::from("12,000.99");
-        // assert!(a3 == b3.unwrap());
-        //
-    	// let a4 = Currency { symbol: Some('£'), coin: BigInt::from(1200099) };
-        // let b4 = Currency::from("£12.000,99");
-        // assert!(a4 == b4.unwrap());
-        //
-    	// // Negatives
-    	// let a5 = Currency { symbol: Some('$'), coin: BigInt::from(-1210) };
-        // let b5 = Currency::from("-$12.10");
-    	// println!("{:?}, {:?}", a1, b1);
-        // assert!(a5 == b5.unwrap());
-        //
-        // let a6 = Currency { symbol: Some('$'), coin: BigInt::from(-1200) };
-        // let b6 = Currency::from("-$12");
-        // assert!(a6 == b6.unwrap());
-        //
-    	// let a7 = Currency { symbol: None, coin: BigInt::from(-1200099) };
-        // let b7 = Currency::from("-12,000.99");
-        // assert!(a7 == b7.unwrap());
-        //
-    	// let a8 = Currency { symbol: Some('£'), coin: BigInt::from(-1200099) };
-        // let b8 = Currency::from("-£12.000,99");
-        // assert!(a8 == b8.unwrap());
-        //
-        // // Zeros
-    	// let a9 = Currency { symbol: Some('€'), coin: BigInt::from(0) };
-        // let b9 = Currency::from("€0");
-        // assert!(a9 == b9.unwrap());
-        //
-    	// let a10 = Currency { symbol: None, coin: BigInt::from(0) };
-        // let b10 = Currency::from("000");
-        // assert!(a10 == b10.unwrap());
-        //
-        // let a11 = Currency { symbol: Some('€'), coin: BigInt::from(50) };
-        // let b11 = Currency::from("€0,50");
-        // assert!(a11 == b11.unwrap());
-        //
-        // let a12 = Currency { symbol: Some('€'), coin: BigInt::from(-50) };
-        // let b12 = Currency::from("-€0.50");
-        // assert!(a12 == b12.unwrap());
+        let expected = Currency { symbol: Some('£'), coin: BigInt::from(1200099) };
+        let actual = Currency::from_str("£12,000.99").unwrap();
+        assert_eq!(expected, actual);
+
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(-1210) };
+        let actual = Currency::from_str("-$12.10").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("$-12.10").unwrap();
+        assert_eq!(expected, actual);
+
+        let expected = Currency { symbol: Some('€'), coin: BigInt::from(-12000) };
+        let actual = Currency::from_str("-€120.00").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("-€120").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("-€-120.0").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("-€120").unwrap();
+        assert_eq!(expected, actual);
+
+        let expected = Currency { symbol: Some('€'), coin: BigInt::from(0) };
+        let actual = Currency::from_str("€0").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("€00.00").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("€.00000000").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("€0.0").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("€000,000.00").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("€000,000").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("€").unwrap();
+        assert_eq!(expected, actual);
+
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(1000) };
+        let actual = Currency::from_str("$10.0001").unwrap();
+        assert_eq!(expected, actual);
+
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(1001) };
+        let actual = Currency::from_str("$10.0099").unwrap();
+        assert_eq!(expected, actual);
     }
 
     #[test]
@@ -657,7 +708,6 @@ mod tests {
         let b = Currency { symbol: Some('$'), coin: BigInt::from(1311) };
         assert!(&a + &b == &b + &a);
     }
-
 
     //
     // #[test]
