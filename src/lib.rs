@@ -178,6 +178,17 @@ impl Currency {
 
     /// Returns a new `Currency` by multiplying the coin by the conversion rate and changing the
     /// symbol.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use currency::Currency;
+    ///
+    /// let dollars = Currency::from_str("$10.00").unwrap();
+    /// let conv_rate = 0.89;
+    /// let euros = dollars.convert(0.89, '€');
+    /// assert_eq!(euros, Currency::from_str("€8.90").unwrap());
+    /// ```
     pub fn convert(&self, conversion_rate: f64, currency_symbol: char) -> Currency {
         let mut result = self * conversion_rate;
         result.symbol = Some(currency_symbol);
