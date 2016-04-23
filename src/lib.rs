@@ -436,10 +436,10 @@ macro_rules! impl_all_trait_combinations_for_currency {
 
 impl_all_trait_combinations_for_currency!(ops::Add, add);
 impl_all_trait_combinations_for_currency!(ops::Sub, sub);
-// impl_all_trait_combinations_for_currency!(ops::Mul, mul);
+// impl_all_trait_combinations_for_currency!(ops::Mul, mul); TODO decide whether this should exist
 
 // other type must implement Into<BigInt>
-macro_rules! impl_all_trait_combinations_for_currency_other {
+macro_rules! impl_all_trait_combinations_for_currency_into_bigint {
     ($module:ident::$imp:ident, $method:ident, $other:ty) => {
         impl<'a, 'b> $module::$imp<&'b $other> for &'a Currency {
             type Output = Currency;
@@ -547,31 +547,31 @@ macro_rules! impl_all_trait_combinations_for_currency_other {
     }
 }
 
-impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, BigUint);
-impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, u8);
-impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, u16);
-impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, u32);
-impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, u64);
-impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, usize);
-impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, i8);
-impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, i16);
-impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, i32);
-impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, i64);
-impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, isize);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Mul, mul, BigUint);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Mul, mul, u8);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Mul, mul, u16);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Mul, mul, u32);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Mul, mul, u64);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Mul, mul, usize);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Mul, mul, i8);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Mul, mul, i16);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Mul, mul, i32);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Mul, mul, i64);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Mul, mul, isize);
 
-impl_all_trait_combinations_for_currency_other!(ops::Div, div, BigUint);
-impl_all_trait_combinations_for_currency_other!(ops::Div, div, u8);
-impl_all_trait_combinations_for_currency_other!(ops::Div, div, u16);
-impl_all_trait_combinations_for_currency_other!(ops::Div, div, u32);
-impl_all_trait_combinations_for_currency_other!(ops::Div, div, u64);
-impl_all_trait_combinations_for_currency_other!(ops::Div, div, usize);
-impl_all_trait_combinations_for_currency_other!(ops::Div, div, i8);
-impl_all_trait_combinations_for_currency_other!(ops::Div, div, i16);
-impl_all_trait_combinations_for_currency_other!(ops::Div, div, i32);
-impl_all_trait_combinations_for_currency_other!(ops::Div, div, i64);
-impl_all_trait_combinations_for_currency_other!(ops::Div, div, isize);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Div, div, BigUint);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Div, div, u8);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Div, div, u16);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Div, div, u32);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Div, div, u64);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Div, div, usize);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Div, div, i8);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Div, div, i16);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Div, div, i32);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Div, div, i64);
+impl_all_trait_combinations_for_currency_into_bigint!(ops::Div, div, isize);
 
-macro_rules! impl_all_trait_combinations_for_currency_other_conv {
+macro_rules! impl_all_trait_combinations_for_currency_conv_bigint {
     ($module:ident::$imp:ident, $method:ident, $other:ty, $conv_method:ident) => {
         impl<'a, 'b> $module::$imp<&'b $other> for &'a Currency {
             type Output = Currency;
@@ -679,11 +679,11 @@ macro_rules! impl_all_trait_combinations_for_currency_other_conv {
     }
 }
 
-impl_all_trait_combinations_for_currency_other_conv!(ops::Mul, mul, f32, from_f32);
-impl_all_trait_combinations_for_currency_other_conv!(ops::Mul, mul, f64, from_f64);
+impl_all_trait_combinations_for_currency_conv_bigint!(ops::Mul, mul, f32, from_f32);
+impl_all_trait_combinations_for_currency_conv_bigint!(ops::Mul, mul, f64, from_f64);
 
-impl_all_trait_combinations_for_currency_other_conv!(ops::Div, div, f32, from_f32);
-impl_all_trait_combinations_for_currency_other_conv!(ops::Div, div, f64, from_f64);
+impl_all_trait_combinations_for_currency_conv_bigint!(ops::Div, div, f32, from_f32);
+impl_all_trait_combinations_for_currency_conv_bigint!(ops::Div, div, f64, from_f64);
 
 /// Overloads the '/' operator between two borrowed Currency objects.
 ///
@@ -837,7 +837,7 @@ mod tests {
         let actual = Currency::from_str("$10.0001").unwrap();
         assert_eq!(expected, actual);
 
-        // TODO
+        // TODO rounding
         // let expected = Currency { symbol: Some('$'), coin: BigInt::from(1001) };
         // let actual = Currency::from_str("$10.0099").unwrap();
         // assert_eq!(expected, actual);
