@@ -182,13 +182,13 @@ impl Currency {
         &self.coin
     }
 
-    // /// Returns a new `Currency` by multiplying the coin by the conversion rate and changing the
-    // /// symbol.
-    // pub fn convert(&self, conversion_rate: f64, currency_symbol: char) -> Currency {
-    //     let mut result = self * conversion_rate;
-    //     result.symbol = currency_symbol;
-    //     result
-    // }
+    /// Returns a new `Currency` by multiplying the coin by the conversion rate and changing the
+    /// symbol.
+    pub fn convert(&self, conversion_rate: f64, currency_symbol: char) -> Currency {
+        let mut result = self * conversion_rate;
+        result.symbol = Some(currency_symbol);
+        result
+    }
 
     // TODO
     // - to_str with comma delimiting
@@ -442,7 +442,7 @@ macro_rules! impl_all_trait_combinations_for_currency {
 
 impl_all_trait_combinations_for_currency!(ops::Add, add);
 impl_all_trait_combinations_for_currency!(ops::Sub, sub);
-impl_all_trait_combinations_for_currency!(ops::Mul, mul);
+// impl_all_trait_combinations_for_currency!(ops::Mul, mul);
 
 // other type must implement Into<BigInt>
 macro_rules! impl_all_trait_combinations_for_currency_other {
@@ -584,10 +584,10 @@ macro_rules! impl_all_trait_combinations_for_currency_other_conv {
 
             #[inline]
             fn $method(self, other: &'b $other) -> Currency {
-                let big_int = BigInt::$conv_method(other.clone()).unwrap();
+                let big_int = BigInt::$conv_method(other.clone() * 100.0).unwrap();
                 Currency {
                     symbol: self.symbol.clone(),
-                    coin: self.coin.clone().$method(big_int)
+                    coin: self.coin.clone().$method(big_int) / BigInt::from(100)
                 }
             }
         }
@@ -597,10 +597,10 @@ macro_rules! impl_all_trait_combinations_for_currency_other_conv {
 
             #[inline]
             fn $method(self, other: $other) -> Currency {
-                let big_int = BigInt::$conv_method(other).unwrap();
+                let big_int = BigInt::$conv_method(other * 100.0).unwrap();
                 Currency {
                     symbol: self.symbol.clone(),
-                    coin: self.coin.clone().$method(big_int)
+                    coin: self.coin.clone().$method(big_int) / BigInt::from(100)
                 }
             }
         }
@@ -610,10 +610,10 @@ macro_rules! impl_all_trait_combinations_for_currency_other_conv {
 
             #[inline]
             fn $method(self, other: &'a $other) -> Currency {
-                let big_int = BigInt::$conv_method(other.clone()).unwrap();
+                let big_int = BigInt::$conv_method(other.clone() * 100.0).unwrap();
                 Currency {
                     symbol: self.symbol,
-                    coin: self.coin.$method(big_int)
+                    coin: self.coin.$method(big_int) / BigInt::from(100)
                 }
             }
         }
@@ -623,10 +623,10 @@ macro_rules! impl_all_trait_combinations_for_currency_other_conv {
 
             #[inline]
             fn $method(self, other: $other) -> Currency {
-                let big_int = BigInt::$conv_method(other).unwrap();
+                let big_int = BigInt::$conv_method(other * 100.0).unwrap();
                 Currency {
                     symbol: self.symbol,
-                    coin: self.coin.$method(big_int)
+                    coin: self.coin.$method(big_int) / BigInt::from(100)
                 }
             }
         }
@@ -636,10 +636,10 @@ macro_rules! impl_all_trait_combinations_for_currency_other_conv {
 
             #[inline]
             fn $method(self, other: &'b Currency) -> Currency {
-                let big_int = BigInt::$conv_method(self.clone()).unwrap();
+                let big_int = BigInt::$conv_method(self.clone() * 100.0).unwrap();
                 Currency {
                     symbol: other.symbol.clone(),
-                    coin: other.coin.clone().$method(big_int)
+                    coin: other.coin.clone().$method(big_int) / BigInt::from(100)
                 }
             }
         }
@@ -649,10 +649,10 @@ macro_rules! impl_all_trait_combinations_for_currency_other_conv {
 
             #[inline]
             fn $method(self, other: Currency) -> Currency {
-                let big_int = BigInt::$conv_method(self.clone()).unwrap();
+                let big_int = BigInt::$conv_method(self.clone() * 100.0).unwrap();
                 Currency {
                     symbol: other.symbol,
-                    coin: other.coin.$method(big_int)
+                    coin: other.coin.$method(big_int) / BigInt::from(100)
                 }
             }
         }
@@ -662,10 +662,10 @@ macro_rules! impl_all_trait_combinations_for_currency_other_conv {
 
             #[inline]
             fn $method(self, other: &'a Currency) -> Currency {
-                let big_int = BigInt::$conv_method(self).unwrap();
+                let big_int = BigInt::$conv_method(self * 100.0).unwrap();
                 Currency {
                     symbol: other.symbol.clone(),
-                    coin: other.coin.clone().$method(big_int)
+                    coin: other.coin.clone().$method(big_int) / BigInt::from(100)
                 }
             }
         }
@@ -675,10 +675,10 @@ macro_rules! impl_all_trait_combinations_for_currency_other_conv {
 
             #[inline]
             fn $method(self, other: Currency) -> Currency {
-                let big_int = BigInt::$conv_method(self).unwrap();
+                let big_int = BigInt::$conv_method(self * 100.0).unwrap();
                 Currency {
                     symbol: other.symbol,
-                    coin: other.coin.$method(big_int)
+                    coin: other.coin.$method(big_int) / BigInt::from(100)
                 }
             }
         }
@@ -874,29 +874,28 @@ mod tests {
     #[test]
     fn test_mul() {
         let a = Currency { symbol: Some('$'), coin: BigInt::from(1211) };
-        let b = Currency { symbol: Some('$'), coin: BigInt::from(1311) };
-        let expected_sum = Currency { symbol: Some('$'), coin: BigInt::from(2522) };
-        let actual_sum = a + b;
-        assert_eq!(expected_sum, actual_sum);
+        let f = 0.97;
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(1174) };
+        let actual = a * f;
+        assert_eq!(expected, actual);
     }
 
     #[test]
-    fn test_add_commutative() {
+    fn test_mul_commutative() {
         let a = Currency { symbol: Some('$'), coin: BigInt::from(1211) };
-        let b = Currency { symbol: Some('$'), coin: BigInt::from(1311) };
-        assert!(&a + &b == &b + &a);
+        let f = 0.97;
+        assert_eq!(&a * &f, &f * &a);
     }
 
-    // #[test]
-    // fn test_convert() {
-    //     let dollars = Currency::from_str("$12.50");
-    //     let euro_conversion_rate = 0.89;
-    //     let euros = dollars.convert(euro_conversion_rate, '€');
-    //     let expected = Currency { symbol: Some('€'), coin: BigInt::from(11.13) };
-    //     assert_eq!(expected, euros);
-    // }
+    #[test]
+    fn test_convert() {
+        let dollars = Currency::from_str("$12.50").unwrap();
+        let euro_conversion_rate = 0.89;
+        let euros = dollars.convert(euro_conversion_rate, '€');
+        let expected = Currency { symbol: Some('€'), coin: BigInt::from(1112) };
+        assert_eq!(expected, euros);
+    }
 
-    //
     // #[test]
     // fn display_works() {
     // 	assert!(format!("{:?}", Currency { symbol: None, coin: 10 }) == "Currency(None, 10)");
