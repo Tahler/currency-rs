@@ -67,14 +67,6 @@ impl Currency {
     /// Parses a string literal (&str) and attempts to convert it into a currency. Returns
     /// `Ok(Currency)` on a successful conversion, otherwise `Err(ParseCurrencyError)`.
     ///
-    /// `from_str` can be unexpectedly simple, so be be aware of the following rules:
-    ///
-    /// 1. If the string contains a '-' before any digits, the Currency will be negative.
-    /// 2. The first non-digit character (excluding '-', ',' and '.') will become the Currency's
-    /// symbol.
-    /// 3. Only the final '.' or ',' is significant. If it is not followed by two digits (the
-    /// "cents"), it is treated as if there were a ".00" or ",00" after it. TODO
-    ///
     /// # Examples
     ///
     /// ```
