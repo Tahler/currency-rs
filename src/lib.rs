@@ -38,7 +38,7 @@ extern crate num;
 
 use std::{ops, cmp, fmt, str};
 
-use num::bigint::{BigInt, ParseBigIntError, Sign};
+use num::bigint::{BigInt, BigUint, ParseBigIntError, Sign};
 use num::Zero;
 
 /// Represents currency through an optional symbol and amount of coin.
@@ -59,36 +59,6 @@ impl Currency {
             symbol: None,
             coin: BigInt::zero()
         }
-    }
-
-    /// Returns the `Sign` of the `BigInt` holding the coins.
-    pub fn sign(&self) -> Sign {
-        self.coin.sign()
-    }
-
-    /// Returns the number of coins held in the `Currency` as `&BigInt`.
-    ///
-    /// Should you need ownership of the returned `BigInt`, call `clone()` on it.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// extern crate num;
-    /// extern crate currency;
-    ///
-    /// fn main() {
-    ///     use num::traits::ToPrimitive;
-    ///     use currency::Currency;
-    ///
-    ///     let c1 = Currency::new();
-    ///     assert_eq!(c1.value().to_u32().unwrap(), 0);
-    ///
-    ///     let c2 = Currency::from_str("$1.42").unwrap();
-    ///     assert_eq!(c2.value().to_u32().unwrap(), 142);
-    /// }
-    /// ```
-    pub fn value(&self) -> &BigInt {
-        &self.coin
     }
 
     /// Parses a string literal (&str) and attempts to convert it into a currency. Returns
@@ -180,6 +150,44 @@ impl Currency {
 
         Ok(currency)
     }
+
+    /// Returns the `Sign` of the `BigInt` holding the coins.
+    pub fn sign(&self) -> Sign {
+        self.coin.sign()
+    }
+
+    /// Returns the number of coins held in the `Currency` as `&BigInt`.
+    ///
+    /// Should you need ownership of the returned `BigInt`, call `clone()` on it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// extern crate num;
+    /// extern crate currency;
+    ///
+    /// fn main() {
+    ///     use num::traits::ToPrimitive;
+    ///     use currency::Currency;
+    ///
+    ///     let c1 = Currency::new();
+    ///     assert_eq!(c1.value().to_u32().unwrap(), 0);
+    ///
+    ///     let c2 = Currency::from_str("$1.42").unwrap();
+    ///     assert_eq!(c2.value().to_u32().unwrap(), 142);
+    /// }
+    /// ```
+    pub fn value(&self) -> &BigInt {
+        &self.coin
+    }
+
+    // /// Returns a new `Currency` by multiplying the coin by the conversion rate and changing the
+    // /// symbol.
+    // pub fn convert(&self, conversion_rate: f64, currency_symbol: char) -> Currency {
+    //     let mut result = self * conversion_rate;
+    //     result.symbol = currency_symbol;
+    //     result
+    // }
 
     // TODO
     // - to_str with comma delimiting
@@ -428,120 +436,145 @@ macro_rules! impl_all_trait_combinations_for_currency {
                 }
             }
         }
-
     }
 }
 
 impl_all_trait_combinations_for_currency!(ops::Add, add);
 impl_all_trait_combinations_for_currency!(ops::Sub, sub);
+impl_all_trait_combinations_for_currency!(ops::Mul, mul);
 
-/// Overloads the '*' operator between two borrowed Currency objects.
-///
-/// # Panics
-/// Panics if the factors are two different types of currency, as denoted by the Currency's symbol.
-impl<'a, 'b> ops::Mul<&'b Currency> for &'a Currency {
-    type Output = Currency;
+// other type must implement Into<BigInt>
+macro_rules! impl_all_trait_combinations_for_currency_other {
+    ($module:ident::$imp:ident, $method:ident, $other:ty) => {
+        impl<'a, 'b> $module::$imp<&'b $other> for &'a Currency {
+            type Output = Currency;
 
-    fn mul(self, other: &Currency) -> Currency {
-        if self.symbol == other.symbol {
-            Currency {
-                symbol: self.symbol,
-                coin: self.coin.clone().mul(other.coin.clone())
+            #[inline]
+            fn $method(self, other: &'b $other) -> Currency {
+                let big_int: BigInt = other.clone().into();
+                Currency {
+                    symbol: self.symbol.clone(),
+                    coin: self.coin.clone().$method(big_int)
+                }
             }
-        } else {
-            panic!("Cannot multiply two different types of currency.");
+        }
+
+        impl<'a> $module::$imp<$other> for &'a Currency {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: $other) -> Currency {
+                let big_int: BigInt = other.into();
+                Currency {
+                    symbol: self.symbol.clone(),
+                    coin: self.coin.clone().$method(big_int)
+                }
+            }
+        }
+
+        impl<'a> $module::$imp<&'a $other> for Currency {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: &'a $other) -> Currency {
+                let big_int: BigInt = other.clone().into();
+                Currency {
+                    symbol: self.symbol,
+                    coin: self.coin.$method(big_int)
+                }
+            }
+        }
+
+        impl $module::$imp<$other> for Currency {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: $other) -> Currency {
+                let big_int: BigInt = other.into();
+                Currency {
+                    symbol: self.symbol,
+                    coin: self.coin.$method(big_int)
+                }
+            }
+        }
+
+        impl<'a, 'b> $module::$imp<&'b Currency> for &'a $other {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: &'b Currency) -> Currency {
+                let big_int: BigInt = self.clone().into();
+                Currency {
+                    symbol: other.symbol.clone(),
+                    coin: other.coin.clone().$method(big_int)
+                }
+            }
+        }
+
+        impl<'a> $module::$imp<Currency> for &'a $other {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: Currency) -> Currency {
+                let big_int: BigInt = self.clone().into();
+                Currency {
+                    symbol: other.symbol,
+                    coin: other.coin.$method(big_int)
+                }
+            }
+        }
+
+        impl<'a> $module::$imp<&'a Currency> for $other {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: &'a Currency) -> Currency {
+                let big_int: BigInt = self.into();
+                Currency {
+                    symbol: other.symbol.clone(),
+                    coin: other.coin.clone().$method(big_int)
+                }
+            }
+        }
+
+        impl $module::$imp<Currency> for $other {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: Currency) -> Currency {
+                let big_int: BigInt = self.into();
+                Currency {
+                    symbol: other.symbol,
+                    coin: other.coin.$method(big_int)
+                }
+            }
         }
     }
 }
 
-/// Overloads the '*' operator between a borrowed Currency object and an owned one.
-///
-/// # Panics
-/// Panics if the factors are two different types of currency, as denoted by the Currency's symbol.
-impl<'a> ops::Mul<Currency> for &'a Currency {
-    type Output = Currency;
+impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, BigUint);
+impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, u8);
+impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, u16);
+impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, u32);
+impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, u64);
+impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, usize);
+impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, i8);
+impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, i16);
+impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, i32);
+impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, i64);
+impl_all_trait_combinations_for_currency_other!(ops::Mul, mul, isize);
 
-    fn mul(self, other: Currency) -> Currency {
-        if self.symbol == other.symbol {
-            Currency {
-                symbol: self.symbol,
-                coin: self.coin.clone().mul(other.coin)
-            }
-        } else {
-            panic!("Cannot multiply two different types of currency.");
-        }
-    }
-}
-
-/// Overloads the '*' operator between an owned Currency object and a borrowed one.
-///
-/// # Panics
-/// Panics if the factors are two different types of currency, as denoted by the Currency's symbol.
-impl<'a> ops::Mul<&'a Currency> for Currency {
-    type Output = Currency;
-
-    fn mul(self, other: &Currency) -> Currency {
-        if self.symbol == other.symbol {
-            Currency {
-                symbol: self.symbol,
-                coin: self.coin.mul(other.coin.clone())
-            }
-        } else {
-            panic!("Cannot multiply two different types of currency.");
-        }
-    }
-}
-
-/// Overloads the '*' operator between two owned Currency objects.
-///
-/// # Panics
-/// Panics if the factors are two different types of currency, as denoted by the Currency's symbol.
-impl ops::Mul<Currency> for Currency {
-    type Output = Currency;
-
-    fn mul(self, other: Currency) -> Currency {
-        if self.symbol == other.symbol {
-            Currency {
-                symbol: self.symbol,
-                coin: self.coin.mul(other.coin)
-            }
-        } else {
-            panic!("Cannot multiply two different types of currency.");
-        }
-    }
-}
-
-// /// Overloads the '*' operator between a Currency object and an Into<BigInt>.
-// ///
-// /// Allows a Currency to be multiplied by any type that can be converted to a BigInt.
-// impl<N: Into<BigInt>> ops::Mul<N> for Currency {
-//     type Output = Currency;
-//
-//     fn mul(self, other: N) -> Currency {
-//         Currency {
-//             symbol: self.symbol,
-//             coin: self.coin.mul(BigInt::from(other))
-//         }
-//     }
-// }
-
-/// Overloads the '*' operator between a Currency object and an Into<BigInt>.
-///
-/// Allows a Currency to be multiplied by any type that can be converted to a BigInt.
-// impl<N: Into<BigInt>> ops::Mul<Currency> for N {
-//     type Output = Currency;
-//
-//     fn mul(self, other: N) -> Currency {
-//         // Currency {
-//         //     symbol: self.symbol,
-//         //     coin: self.coin.mul(BigInt::from(other))
-//         // }
-//         Currency::new()
-//     }
-// }
-
-
-// TODO mul for each num type, both ways
+impl_all_trait_combinations_for_currency_other!(ops::Div, div, BigUint);
+impl_all_trait_combinations_for_currency_other!(ops::Div, div, u8);
+impl_all_trait_combinations_for_currency_other!(ops::Div, div, u16);
+impl_all_trait_combinations_for_currency_other!(ops::Div, div, u32);
+impl_all_trait_combinations_for_currency_other!(ops::Div, div, u64);
+impl_all_trait_combinations_for_currency_other!(ops::Div, div, usize);
+impl_all_trait_combinations_for_currency_other!(ops::Div, div, i8);
+impl_all_trait_combinations_for_currency_other!(ops::Div, div, i16);
+impl_all_trait_combinations_for_currency_other!(ops::Div, div, i32);
+impl_all_trait_combinations_for_currency_other!(ops::Div, div, i64);
+impl_all_trait_combinations_for_currency_other!(ops::Div, div, isize);
 
 // /// Overloads the '/ operator between two owned Currency objects.
 // ///
@@ -566,6 +599,7 @@ impl ops::Mul<Currency> for Currency {
 // TODO
 // - neg
 // - rem
+// - signed
 
 #[cfg(test)]
 mod tests {
@@ -575,8 +609,6 @@ mod tests {
     #[test]
     fn test_from_str() {
         use std::str::FromStr;
-// use num::bigint::BigUint;
-//         BigUint::from_str("01210").unwrap();
 
         let expected = Currency { symbol: Some('$'), coin: BigInt::from(1210) };
         let actual = Currency::from_str("$12.10").unwrap();
@@ -652,9 +684,10 @@ mod tests {
         let actual = Currency::from_str("$10.0001").unwrap();
         assert_eq!(expected, actual);
 
-        let expected = Currency { symbol: Some('$'), coin: BigInt::from(1001) };
-        let actual = Currency::from_str("$10.0099").unwrap();
-        assert_eq!(expected, actual);
+        // TODO
+        // let expected = Currency { symbol: Some('$'), coin: BigInt::from(1001) };
+        // let actual = Currency::from_str("$10.0099").unwrap();
+        // assert_eq!(expected, actual);
     }
 
     #[test]
@@ -708,6 +741,45 @@ mod tests {
         let b = Currency { symbol: Some('$'), coin: BigInt::from(1311) };
         assert!(&a + &b == &b + &a);
     }
+
+    #[test]
+    fn test_sub() {
+        let a = Currency { symbol: Some('$'), coin: BigInt::from(1211) };
+        let b = Currency { symbol: Some('$'), coin: BigInt::from(1311) };
+
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(-100) };
+        let actual = &a - &b;
+        assert_eq!(expected, actual);
+
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(100) };
+        let actual = b - a;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_mul() {
+        let a = Currency { symbol: Some('$'), coin: BigInt::from(1211) };
+        let b = Currency { symbol: Some('$'), coin: BigInt::from(1311) };
+        let expected_sum = Currency { symbol: Some('$'), coin: BigInt::from(2522) };
+        let actual_sum = a + b;
+        assert_eq!(expected_sum, actual_sum);
+    }
+
+    #[test]
+    fn test_add_commutative() {
+        let a = Currency { symbol: Some('$'), coin: BigInt::from(1211) };
+        let b = Currency { symbol: Some('$'), coin: BigInt::from(1311) };
+        assert!(&a + &b == &b + &a);
+    }
+
+    // #[test]
+    // fn test_convert() {
+    //     let dollars = Currency::from_str("$12.50");
+    //     let euro_conversion_rate = 0.89;
+    //     let euros = dollars.convert(euro_conversion_rate, '€');
+    //     let expected = Currency { symbol: Some('€'), coin: BigInt::from(11.13) };
+    //     assert_eq!(expected, euros);
+    // }
 
     //
     // #[test]
