@@ -40,6 +40,7 @@ use std::{ops, cmp, fmt, str};
 
 use num::bigint::{BigInt, BigUint, ParseBigIntError, Sign};
 use num::Zero;
+use num::traits::FromPrimitive;
 
 /// Represents currency through an optional symbol and amount of coin.
 ///
@@ -575,6 +576,120 @@ impl_all_trait_combinations_for_currency_other!(ops::Div, div, i16);
 impl_all_trait_combinations_for_currency_other!(ops::Div, div, i32);
 impl_all_trait_combinations_for_currency_other!(ops::Div, div, i64);
 impl_all_trait_combinations_for_currency_other!(ops::Div, div, isize);
+
+macro_rules! impl_all_trait_combinations_for_currency_other_conv {
+    ($module:ident::$imp:ident, $method:ident, $other:ty, $conv_method:ident) => {
+        impl<'a, 'b> $module::$imp<&'b $other> for &'a Currency {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: &'b $other) -> Currency {
+                let big_int = BigInt::$conv_method(other.clone()).unwrap();
+                Currency {
+                    symbol: self.symbol.clone(),
+                    coin: self.coin.clone().$method(big_int)
+                }
+            }
+        }
+
+        impl<'a> $module::$imp<$other> for &'a Currency {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: $other) -> Currency {
+                let big_int = BigInt::$conv_method(other).unwrap();
+                Currency {
+                    symbol: self.symbol.clone(),
+                    coin: self.coin.clone().$method(big_int)
+                }
+            }
+        }
+
+        impl<'a> $module::$imp<&'a $other> for Currency {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: &'a $other) -> Currency {
+                let big_int = BigInt::$conv_method(other.clone()).unwrap();
+                Currency {
+                    symbol: self.symbol,
+                    coin: self.coin.$method(big_int)
+                }
+            }
+        }
+
+        impl $module::$imp<$other> for Currency {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: $other) -> Currency {
+                let big_int = BigInt::$conv_method(other).unwrap();
+                Currency {
+                    symbol: self.symbol,
+                    coin: self.coin.$method(big_int)
+                }
+            }
+        }
+
+        impl<'a, 'b> $module::$imp<&'b Currency> for &'a $other {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: &'b Currency) -> Currency {
+                let big_int = BigInt::$conv_method(self.clone()).unwrap();
+                Currency {
+                    symbol: other.symbol.clone(),
+                    coin: other.coin.clone().$method(big_int)
+                }
+            }
+        }
+
+        impl<'a> $module::$imp<Currency> for &'a $other {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: Currency) -> Currency {
+                let big_int = BigInt::$conv_method(self.clone()).unwrap();
+                Currency {
+                    symbol: other.symbol,
+                    coin: other.coin.$method(big_int)
+                }
+            }
+        }
+
+        impl<'a> $module::$imp<&'a Currency> for $other {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: &'a Currency) -> Currency {
+                let big_int = BigInt::$conv_method(self).unwrap();
+                Currency {
+                    symbol: other.symbol.clone(),
+                    coin: other.coin.clone().$method(big_int)
+                }
+            }
+        }
+
+        impl $module::$imp<Currency> for $other {
+            type Output = Currency;
+
+            #[inline]
+            fn $method(self, other: Currency) -> Currency {
+                let big_int = BigInt::$conv_method(self).unwrap();
+                Currency {
+                    symbol: other.symbol,
+                    coin: other.coin.$method(big_int)
+                }
+            }
+        }
+    }
+}
+
+impl_all_trait_combinations_for_currency_other_conv!(ops::Mul, mul, f32, from_f32);
+impl_all_trait_combinations_for_currency_other_conv!(ops::Mul, mul, f64, from_f64);
+
+impl_all_trait_combinations_for_currency_other_conv!(ops::Div, div, f32, from_f32);
+impl_all_trait_combinations_for_currency_other_conv!(ops::Div, div, f64, from_f64);
 
 // /// Overloads the '/ operator between two owned Currency objects.
 // ///
