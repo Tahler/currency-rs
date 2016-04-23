@@ -38,7 +38,7 @@
 
 extern crate num;
 
-use std::{ops, cmp, fmt, str};
+use std::{ops, fmt, str};
 
 use num::bigint::{BigInt, BigUint, ParseBigIntError, Sign};
 use num::Zero;
@@ -49,7 +49,7 @@ use num::traits::FromPrimitive;
 /// Every 100 coins represents a banknote. (coin: 100 => 1.00)
 /// A currency is formatted by default as such:
 /// `Currency { symbol: Some('$'), coin: 432 }` => "$4.32"
-#[derive(Debug, Clone, Hash, Default)]
+#[derive(Debug, Clone, Hash, Default, PartialEq, Eq, PartialOrd)]
 pub struct Currency {
     symbol: Option<char>,
     coin: BigInt
@@ -198,8 +198,6 @@ impl Currency {
     // TODO
     // - to_str with comma delimiting
     // - to_str with euro delimiting
-    // - conversion with supplied conversion rate
-    // - tax
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -305,76 +303,8 @@ impl str::FromStr for Currency {
 // }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// cmp trait implementations
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-/// Overloads the '==' operator for Currency objects.
-///
-/// # Panics
-/// Panics if the two comparators are different types of currency, as denoted by the Currency's
-/// symbol.
-impl PartialEq<Currency> for Currency {
-    fn eq(&self, other: &Currency) -> bool {
-        self.symbol == other.symbol && self.coin == other.coin
-    }
-
-    fn ne(&self, other: &Currency) -> bool {
-        self.symbol != other.symbol || self.coin != other.coin
-    }
-}
-
-/// Overloads the order operators for Currency objects.
-///
-/// These operators include '<', '<=', '>', and '>='.
-///
-/// # Panics
-/// Panics if the two comparators are different types of currency, as denoted by
-/// the Currency's symbol.
-impl PartialOrd<Currency> for Currency {
-    fn partial_cmp(&self, other: &Currency) -> Option<cmp::Ordering> {
-        if self.symbol == other.symbol {
-            self.coin.partial_cmp(&other.coin)
-        } else {
-            None
-        }
-    }
-
-    fn lt(&self, other: &Currency) -> bool {
-        if self.symbol == other.symbol {
-            self.coin.lt(&other.coin)
-        } else {
-            panic!("Cannot compare two different types of currency.");
-        }
-    }
-
-    fn le(&self, other: &Currency) -> bool {
-        if self.symbol == other.symbol {
-            self.coin.le(&other.coin)
-        } else {
-            panic!("Cannot compare two different types of currency.");
-        }
-    }
-
-    fn gt(&self, other: &Currency) -> bool {
-        if self.symbol == other.symbol {
-            self.coin.gt(&other.coin)
-        } else {
-            panic!("Cannot compare two different types of currency.");
-        }
-    }
-
-    fn ge(&self, other: &Currency) -> bool {
-        if self.symbol == other.symbol {
-            self.coin.ge(&other.coin)
-        } else {
-            panic!("Cannot compare two different types of currency.");
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
 // ops trait implementations
-// macros copied from bigint: http://rust-num.github.io/num/src/num_bigint/bigint/src/lib.rs.html
+// macros based on bigint: http://rust-num.github.io/num/src/num_bigint/bigint/src/lib.rs.html
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 macro_rules! impl_all_trait_combinations_for_currency {
@@ -760,8 +690,29 @@ impl ops::Div<Currency> for Currency {
     }
 }
 
+impl ops::Neg for Currency {
+    type Output = Currency;
+
+    fn neg(self) -> Currency {
+        Currency {
+            symbol: self.symbol,
+            coin: -self.coin
+        }
+    }
+}
+
+impl<'a> ops::Neg for &'a Currency {
+    type Output = Currency;
+
+    fn neg(self) -> Currency {
+        Currency {
+            symbol: self.symbol.clone(),
+            coin: -self.coin.clone()
+        }
+    }
+}
+
 // TODO
-// - neg
 // - rem
 // - signed
 
@@ -948,6 +899,24 @@ mod tests {
         let b = Currency { symbol: Some('$'), coin: BigInt::from(888) };
         let expected = BigInt::from(3);
         let actual = a / b;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_neg() {
+        let c = Currency { symbol: Some('$'), coin: BigInt::from(3248) };
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(-3248) };
+        let actual = -c;
+        assert_eq!(expected, actual);
+
+        let c = Currency { symbol: Some('$'), coin: BigInt::from(-3248) };
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(3248) };
+        let actual = -c;
+        assert_eq!(expected, actual);
+
+        let c = Currency { symbol: Some('$'), coin: BigInt::from(0) };
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(0) };
+        let actual = -c;
         assert_eq!(expected, actual);
     }
 
