@@ -1,3 +1,5 @@
+// TODO issues with precision. truncation all over the place
+
 // Copyright (c) 2016 Tyler Berry All Rights Reserved.
 //
 // Licensed under the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>.
@@ -12,22 +14,22 @@
 //! convert international currency representations such as "$1,000.42" and "£10,99" into a
 //! usable `Currency` instance.
 //!
-// //! //TODO
-// //! ## Example
-// //! ```
-// //! extern crate currency;
-// //!
-// //! fn main() {
-// //!     use currency::Currency;
-// //!
-// //!     let sock_price = Currency::from_str("$11.99");
-// //!     let toothbrush_price = Currency::from_str("$1.99");
-// //!     let subtotal = sock_price + toothbrush_price;
-// //!     let tax_rate = 0.07;
-// //!     let total = subtotal + (subtotal * tax_rate);
-// //!     assert_eq!(total.to_str(), "$14.96")
-// //! }
-// //! ```
+//! ## Example
+//!
+//! ```
+//! extern crate currency;
+//!
+//! fn main() {
+//!     use currency::Currency;
+//!
+//!     let sock_price = Currency::from_str("$11.99").unwrap();
+//!     let toothbrush_price = Currency::from_str("$1.99").unwrap();
+//!     let subtotal = sock_price + toothbrush_price;
+//!     let tax_rate = 0.07;
+//!     let total = &subtotal + (&subtotal * tax_rate);
+////!     assert_eq!(total.to_str(), "$14.95") TODO
+//! }
+//! ```
 //!
 //! ## Limitations
 //!
@@ -691,25 +693,69 @@ impl_all_trait_combinations_for_currency_other_conv!(ops::Mul, mul, f64, from_f6
 impl_all_trait_combinations_for_currency_other_conv!(ops::Div, div, f32, from_f32);
 impl_all_trait_combinations_for_currency_other_conv!(ops::Div, div, f64, from_f64);
 
-// /// Overloads the '/ operator between two owned Currency objects.
-// ///
-// /// # Panics
-// /// Panics if the factors are two different types of currency, as denoted by the Currency's symbol.
-// impl ops::Div<Currency> for Currency {
-//     type Output = BigInt;
-//
-//     fn mul(self, other: Currency) -> Currency {
-//         if self.symbol == other.symbol {
-//             Currency {
-//                 symbol: self.symbol,
-//                 coin: self.coin.mul(other.coin)
-//             }
-//         } else {
-//             panic!("Cannot multiply two different types of currency.");
-//         }
-//     }
-// }
+/// Overloads the '/' operator between two borrowed Currency objects.
+///
+/// # Panics
+/// Panics if they aren't the same type of currency, as denoted by the currency's symbol.
+impl<'a, 'b> ops::Div<&'b Currency> for &'a Currency {
+    type Output = BigInt;
 
+    fn div(self, other: &'b Currency) -> BigInt {
+        if self.symbol == other.symbol {
+            self.coin.clone() / other.coin.clone()
+        } else {
+            panic!("Cannot divide two different types of currency.");
+        }
+    }
+}
+
+/// Overloads the '/' operator between a borrowed Currency object and an owned one.
+///
+/// # Panics
+/// Panics if they aren't the same type of currency, as denoted by the currency's symbol.
+impl<'a> ops::Div<Currency> for &'a Currency {
+    type Output = BigInt;
+
+    fn div(self, other: Currency) -> BigInt {
+        if self.symbol == other.symbol {
+            self.coin.clone() / other.coin
+        } else {
+            panic!("Cannot divide two different types of currency.");
+        }
+    }
+}
+
+/// Overloads the '/' operator between an owned Currency object and a borrowed one.
+///
+/// # Panics
+/// Panics if they aren't the same type of currency, as denoted by the currency's symbol.
+impl<'a> ops::Div<&'a Currency> for Currency {
+    type Output = BigInt;
+
+    fn div(self, other: &'a Currency) -> BigInt {
+        if self.symbol == other.symbol {
+            self.coin / other.coin.clone()
+        } else {
+            panic!("Cannot divide two different types of currency.");
+        }
+    }
+}
+
+/// Overloads the '/' operator between two owned Currency objects.
+///
+/// # Panics
+/// Panics if they aren't the same type of currency, as denoted by the currency's symbol.
+impl ops::Div<Currency> for Currency {
+    type Output = BigInt;
+
+    fn div(self, other: Currency) -> BigInt {
+        if self.symbol == other.symbol {
+            self.coin / other.coin
+        } else {
+            panic!("Cannot divide two different types of currency.");
+        }
+    }
+}
 
 // TODO
 // - neg
@@ -885,6 +931,21 @@ mod tests {
         let a = Currency { symbol: Some('$'), coin: BigInt::from(1211) };
         let f = 0.97;
         assert_eq!(&a * &f, &f * &a);
+    }
+
+    #[test]
+    fn test_div() {
+        let a = Currency { symbol: Some('$'), coin: BigInt::from(2500) };
+        let b = Currency { symbol: Some('$'), coin: BigInt::from(500) };
+        let expected = BigInt::from(5);
+        let actual = a / b;
+        assert_eq!(expected, actual);
+
+        let a = Currency { symbol: Some('$'), coin: BigInt::from(3248) };
+        let b = Currency { symbol: Some('$'), coin: BigInt::from(888) };
+        let expected = BigInt::from(3);
+        let actual = a / b;
+        assert_eq!(expected, actual);
     }
 
     #[test]
