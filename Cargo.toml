@@ -4,7 +4,7 @@ version = "0.4.0"
 authors = ["tberry@student.neumont.edu"]
 description = "A library for representing international currencies."
 repository = "https://github.com/Tahler/rust-lang-currency"
-documentation = "http://tyborg.me/rust_docs/currency/currency/index.html"
+documentation = "http://tahler.github.io/rust-lang-currency/currency/index.html"
 keywords = ["currency", "money", "taxes", "bank", "international"]
 license = "MIT"
 
