@@ -27,7 +27,7 @@
 //!     let subtotal = sock_price + toothbrush_price;
 //!     let tax_rate = 0.07;
 //!     let total = &subtotal + (&subtotal * tax_rate);
-////!     assert_eq!(total.to_str(), "$14.95") TODO
+//!     assert_eq!(format!("{}", total), "$14.95");
 //! }
 //! ```
 //!
@@ -35,6 +35,9 @@
 //!
 //! This crate cannot lookup conversion data dynamically. It does supply a `convert` function, but
 //! the conversion rates will need to be input by the user.
+//!
+//! This crate also does not handle rounding or precision. Values are truncated during
+//! multiplication, division, and extra precision in a parse (such as gas prices).
 
 extern crate num;
 
@@ -50,8 +53,6 @@ const SECTION_LEN: usize = 3; // 1,323.00 <- "323" is a section
 /// Represents currency through an optional symbol and amount of coin.
 ///
 /// Every 100 coins represents a banknote. (coin: 100 => 1.00)
-/// A currency is formatted by default as such:
-/// `Currency { symbol: Some('$'), coin: 432 }` => "$4.32"
 #[derive(Debug, Clone, Hash, Default, PartialEq, Eq, PartialOrd)]
 pub struct Currency {
     symbol: Option<char>,
@@ -209,36 +210,20 @@ impl Currency {
 // fmt trait implementations
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// TODO
-/// Allows any Currency to be displayed as a String. The format includes no comma delimiting with a
+/// Allows any Currency to be displayed as a String. The format includes comma delimiting with a
 /// two digit precision decimal.
 ///
-/// # Formats
+/// # Example
 ///
-/// ## Arguments
+/// ```
+/// use currency::Currency;
 ///
-/// `#` display commas
+/// let dollars = Currency::from_str("$12.10").unwrap();
+/// assert_eq!(dollars.to_string(), "$12.10");
 ///
-/// ## Examples
-///
-/// {} => No commas, rounded to nearest dollar.
-/// {:#} => Commas, rounded to nearest dollar.
-/// {:#.2} => Commas, with decimal point. (values greater than two will route to this fmt as well)
-/// {:.1} => No commas, rounded to nearest ten cents.
-///
-// / # Examples
-// / ```
-// / use currency::Currency;
-// /
-// / assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
-// / assert!(Currency(None, 1210).to_string() == "12.10");
-// /
-// / println!("{:#}", Currency(Some('$'), 100099)); // $1,000
-// / ```
-// / The last line prints:
-// / ```text
-// / "$1000.99"
-// / ```
+/// let euros = Currency::from_str("£1.000").unwrap();
+/// assert_eq!(format!("{:e}", euros), "£1.000,00");
+/// ```
 impl fmt::Display for Currency {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use num::traits::Signed;
@@ -319,25 +304,29 @@ impl error::Error for ParseCurrencyError {
     }
 }
 
-// TODO
-// /// Identical to the implementation of Display, but replaces the "." with a ",". Access this
-// /// formating by using "{:e}".
-// ///
-// /// # Examples
-// /// ```
-// /// use currency::Currency;
-// ///
-// /// println!("{:e}", Currency(Some('£'), 100099));
-// /// ```
-// /// The last line prints the following:
-// /// ```text
-// /// "£1000,99"
-// /// ```
-// impl fmt::LowerExp for Currency {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         write!(f, "{}", format!("{}", self).replace(".", ","))
-//     }
-// }
+/// Identical to the implementation of Display, but replaces the "." with a ",". Access this
+/// formatting by using "{:e}".
+///
+/// # Example
+///
+/// ```
+/// use currency::Currency;
+///
+/// let euros = Currency::from_str("£1000,99").unwrap();
+/// println!("{:e}", euros);
+/// ```
+/// Which prints:
+/// ```text
+/// "£1.000,99"
+/// ```
+impl fmt::LowerExp for Currency {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let temp = format!("{}", self).replace(".", "x");
+        let almost = temp.replace(",", ".");
+        let there_we_go = almost.replace("x", ",");
+        write!(f, "{}", there_we_go)
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // ops trait implementations
@@ -1015,7 +1004,18 @@ mod tests {
             }.to_string(),
             "-$1,234,567,890.01"
         );
+    }
 
-    	// assert!(format!("{:e}", Currency { symbol: Some('£'), coin: 100000 }) == "£1000,00");
+    #[test]
+    fn test_foreign_display() {
+        assert_eq!(
+            format!("{:e}", Currency { symbol: Some('£'), coin: BigInt::from(100000) }),
+            "£1.000,00"
+        );
+
+        assert_eq!(
+            format!("{:e}", Currency { symbol: Some('£'), coin: BigInt::from(123400101) }),
+            "£1.234.001,01"
+        );
     }
 }
