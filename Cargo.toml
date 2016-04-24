@@ -2,12 +2,10 @@
 name = "currency"
 version = "0.4.0"
 authors = ["tberry@student.neumont.edu"]
-description = "A library written in Rust for representing international 
-               currencies."
+description = "A library written in Rust for representing international currencies."
 repository = "https://github.com/Tahler/rust-lang-currency"
 documentation = "http://tyborg.me/rust_docs/currency/currency/index.html"
-keywords = ["currency", "money", "taxes", "bank", "international", "coin",
-            "dollars", "euros", "pounds", "funds", "dough", "moolah"]
+keywords = ["currency", "money", "taxes", "bank", "international", "coin", "dollars", "euros", "pounds", "funds", "dough", "moolah"]
 license = "MIT"
 
 [dependencies]
