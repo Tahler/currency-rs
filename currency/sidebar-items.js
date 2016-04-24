@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Currency","Represents currency through an optional symbol and amount of coin."],["ParseCurrencyError",""]]});
