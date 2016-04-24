@@ -44,6 +44,9 @@ use num::bigint::{BigInt, BigUint, Sign};
 use num::Zero;
 use num::traits::FromPrimitive;
 
+const DECIMAL_PLACES: usize = 2;
+const SECTION_LEN: usize = 3; // 1,323.00 <- "323" is a section
+
 /// Represents currency through an optional symbol and amount of coin.
 ///
 /// Every 100 coins represents a banknote. (coin: 100 => 1.00)
@@ -206,50 +209,82 @@ impl Currency {
 // fmt trait implementations
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// /// Allows any Currency to be displayed as a String. The format includes no comma delimiting with a
-// /// two digit precision decimal.
-// ///
-// /// # Formats
-// ///
-// /// ## Arguments
-// ///
-// /// `#` display commas
-// ///
-// /// ## Examples
-// ///
-// /// {} => No commas, rounded to nearest dollar.
-// /// {:#} => Commas, rounded to nearest dollar.
-// /// {:#.2} => Commas, with decimal point. (values greater than two will route to this fmt as well)
-// /// {:.1} => No commas, rounded to nearest ten cents.
-// ///
-// /// # Examples
-// /// ```
-// /// use currency::Currency;
-// ///
-// /// assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
-// /// assert!(Currency(None, 1210).to_string() == "12.10");
-// ///
-// /// println!("{:#}", Currency(Some('$'), 100099)); // $1,000
-// /// println!("{:.2}", Currency(Some('$'), 100099)); //
-// /// println!("{:.1}", Currency(Some('$'), 100099));
-// /// println!("{:.0}", Currency(Some('$'), 100099)); //
-// /// ```
-// /// The last line prints:
-// /// ```text
-// /// "$1000.99"
-// /// ```
-// impl fmt::Display for Currency { // TODO
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         let one_hundred = BigInt::from(100);
-//         // TODO cases
-//         let cents = &self.coin % one_hundred;
-//         let dollars = &self.coin - &cents;
-//         match self.symbol {
-//             Some(c) => write!(f, "{}{}.{}", c, dollars, cents),
-//             None    => write!(f, "{}.{}", dollars, cents),
-//         }
-//     }
-// }
+// TODO
+/// Allows any Currency to be displayed as a String. The format includes no comma delimiting with a
+/// two digit precision decimal.
+///
+/// # Formats
+///
+/// ## Arguments
+///
+/// `#` display commas
+///
+/// ## Examples
+///
+/// {} => No commas, rounded to nearest dollar.
+/// {:#} => Commas, rounded to nearest dollar.
+/// {:#.2} => Commas, with decimal point. (values greater than two will route to this fmt as well)
+/// {:.1} => No commas, rounded to nearest ten cents.
+///
+// / # Examples
+// / ```
+// / use currency::Currency;
+// /
+// / assert!(Currency(Some('$'), 1210).to_string() == "$12.10");
+// / assert!(Currency(None, 1210).to_string() == "12.10");
+// /
+// / println!("{:#}", Currency(Some('$'), 100099)); // $1,000
+// / ```
+// / The last line prints:
+// / ```text
+// / "$1000.99"
+// / ```
+impl fmt::Display for Currency {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use num::traits::Signed;
+
+        let mut result = String::new();
+
+        if self.coin.sign() == Sign::Minus {
+            result.push('-');
+        }
+
+        if self.symbol.is_some() {
+            result.push(self.symbol.unwrap());
+        }
+
+        let digit_str = self.coin.abs().to_str_radix(10);
+
+        // put symbol before first digit
+        let n_digits = digit_str.len();
+        if n_digits <= DECIMAL_PLACES { // gotta put 0.xx or 0.0x
+            result.push_str("0.");
+            if n_digits == 1 {
+                result.push('0');
+            }
+            result.push_str(&digit_str);
+        } else {
+            let n_before_dec = n_digits - DECIMAL_PLACES;
+            let int_digit_str = &digit_str[0..n_before_dec];
+            let dec_digit_str = &digit_str[n_before_dec..n_digits];
+
+            let first_section_len = n_before_dec % SECTION_LEN;
+            let mut counter = SECTION_LEN - first_section_len;
+            for digit in int_digit_str.chars() {
+                if counter == SECTION_LEN {
+                    counter = 0;
+                    result.push(',');
+                }
+                result.push(digit);
+                counter += 1;
+            }
+            result.push('.');
+            result.push_str(dec_digit_str);
+        }
+
+        write!(f, "{}", result)
+    }
+}
 
 impl str::FromStr for Currency {
     type Err = ParseCurrencyError;
@@ -931,14 +966,56 @@ mod tests {
         assert_eq!(expected, euros);
     }
 
-    // #[test]
-    // fn display_works() {
-    // 	assert!(format!("{:?}", Currency { symbol: None, coin: 10 }) == "Currency(None, 10)");
-    //
-    // 	assert!(Currency { symbol: None, coin: 1210 }.to_string() == "12.10");
-    //     assert!(Currency { symbol: Some('$'), coin: 1210 }.to_string() == "$12.10");
-    //     assert!(Currency { symbol: Some('$'), coin: 100010 }.to_string() == "$1000.10");
-    //
-    // 	assert!(format!("{:e}", Currency { symbol: Some('£'), coin: 100000 }) == "£1000,00");
-    // }
+    #[test]
+    fn test_display() {
+        use num::traits::Num;
+
+        assert_eq!(
+            Currency { symbol: Some('$'), coin: BigInt::from(0) }.to_string(),
+            "$0.00"
+        );
+
+        assert_eq!(
+            Currency { symbol: Some('$'), coin: BigInt::from(-1) }.to_string(),
+            "-$0.01"
+        );
+
+        assert_eq!(
+            Currency { symbol: None, coin: BigInt::from(11) }.to_string(),
+            "0.11"
+        );
+
+        assert_eq!(
+            Currency { symbol: None, coin: BigInt::from(1210) }.to_string(),
+            "12.10"
+        );
+
+        assert_eq!(
+            Currency { symbol: Some('$'), coin: BigInt::from(1210) }.to_string(),
+            "$12.10"
+        );
+
+        assert_eq!(
+            Currency { symbol: Some('£'), coin: BigInt::from(100010) }.to_string(),
+            "£1,000.10"
+        );
+
+        assert_eq!(
+            Currency {
+                symbol: Some('$'),
+                coin: BigInt::from_str_radix("123456789001", 10).unwrap()
+            }.to_string(),
+            "$1,234,567,890.01"
+        );
+
+        assert_eq!(
+            Currency {
+                symbol: Some('$'),
+                coin: BigInt::from_str_radix("-123456789001", 10).unwrap()
+            }.to_string(),
+            "-$1,234,567,890.01"
+        );
+
+    	// assert!(format!("{:e}", Currency { symbol: Some('£'), coin: 100000 }) == "£1000,00");
+    }
 }
