@@ -38,9 +38,9 @@
 
 extern crate num;
 
-use std::{ops, fmt, str};
+use std::{ops, fmt, str, error};
 
-use num::bigint::{BigInt, BigUint, ParseBigIntError, Sign};
+use num::bigint::{BigInt, BigUint, Sign};
 use num::Zero;
 use num::traits::FromPrimitive;
 
@@ -76,9 +76,11 @@ impl Currency {
     /// let c2 = Currency::from_str("$0.10").unwrap();
     /// assert_eq!(c1 + c2, Currency::from_str("$42.42").unwrap());
     /// ```
-    pub fn from_str(s: &str) -> Result<Currency, ParseBigIntError> {
+    pub fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
         use std::str::FromStr;
         use num::bigint::{BigUint, Sign};
+
+        let err = ParseCurrencyError::new(s);
 
         fn is_symbol(c: char) -> bool {
             !c.is_digit(10) && c != '-' && c != '.' && c != ','
@@ -114,7 +116,7 @@ impl Currency {
             let parse_result = BigUint::from_str(&digits);
             match parse_result {
                 Ok(int) => int,
-                Err(err) => {
+                Err(_) => {
                     println!("{:?}", digits);
                     return Err(err)
                 }
@@ -250,37 +252,37 @@ impl Currency {
 // }
 
 impl str::FromStr for Currency {
-    type Err = ParseBigIntError;
+    type Err = ParseCurrencyError;
 
-    fn from_str(s: &str) -> Result<Currency, ParseBigIntError> {
+    fn from_str(s: &str) -> Result<Currency, ParseCurrencyError> {
         Currency::from_str(s)
     }
 }
 
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct ParseCurrencyError {
-//     source: String
-// }
-//
-// impl ParseCurrencyError {
-//     fn new(s: &str) -> Self {
-//         ParseCurrencyError {
-//             source: s.to_string()
-//         }
-//     }
-// }
-//
-// impl fmt::Display for ParseCurrencyError {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         write!(f, "Could not parse {} into a currency.", self.source)
-//     }
-// }
-//
-// impl error::Error for ParseCurrencyError {
-//     fn description(&self) -> &str {
-//         "Failed to parse currency"
-//     }
-// }
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParseCurrencyError {
+    source: String
+}
+
+impl ParseCurrencyError {
+    fn new(s: &str) -> Self {
+        ParseCurrencyError {
+            source: s.to_string()
+        }
+    }
+}
+
+impl fmt::Display for ParseCurrencyError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Could not parse {} into a currency.", self.source)
+    }
+}
+
+impl error::Error for ParseCurrencyError {
+    fn description(&self) -> &str {
+        "Failed to parse currency"
+    }
+}
 
 // TODO
 // /// Identical to the implementation of Display, but replaces the "." with a ",". Access this
