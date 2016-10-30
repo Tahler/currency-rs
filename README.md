@@ -1,4 +1,4 @@
-# Rust Currency
+# Rust Currency Library
 
 A very small library, providing a way to represent currencies in Rust.
 
