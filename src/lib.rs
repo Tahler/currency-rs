@@ -256,7 +256,7 @@ impl fmt::Display for Currency {
             let first_section_len = n_before_dec % SECTION_LEN;
             let mut counter = SECTION_LEN - first_section_len;
             for digit in int_digit_str.chars() {
-                if counter == SECTION_LEN {
+                if counter == SECTION_LEN && n_digits > 5{
                     counter = 0;
                     result.push(',');
                 }
@@ -749,8 +749,6 @@ mod tests {
 
     #[test]
     fn test_from_str() {
-        use std::str::FromStr;
-
         let expected = Currency { symbol: Some('$'), coin: BigInt::from(1210) };
         let actual = Currency::from_str("$12.10").unwrap();
         assert_eq!(expected, actual);
@@ -1004,6 +1002,12 @@ mod tests {
             }.to_string(),
             "-$1,234,567,890.01"
         );
+
+        let ccy: Currency = "100".parse().unwrap();
+        assert_eq!(ccy.to_string(), "100.00");
+
+        let ccy: Currency = "1200".parse().unwrap();
+        assert_eq!(ccy.to_string(), "1,200.00");
     }
 
     #[test]
