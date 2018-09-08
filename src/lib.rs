@@ -87,7 +87,7 @@ impl Currency {
         let err = ParseCurrencyError::new(s);
 
         fn is_symbol(c: char) -> bool {
-            !c.is_digit(10) && c != '-' && c != '.' && c != ','
+            !c.is_digit(10) && c != '-' && c != '.' && c != ',' && c != ')'
         }
 
         fn is_delimiter(c: char) -> bool {
@@ -101,7 +101,7 @@ impl Currency {
         let mut last_delimiter = None;
         let mut last_streak_len = 0;
         for c in s.chars() {
-            if c == '-' && digits.len() == 0 {
+            if (c  == '(' || c == '-') && digits.len() == 0 {
                 sign = Sign::Minus;
             } else if is_delimiter(c) {
                 last_streak_len = 0;
@@ -110,6 +110,8 @@ impl Currency {
                 if symbol.is_none() {
                     symbol = Some(c);
                 }
+            } else if c == ')' {
+                break;
             } else {
                 last_streak_len += 1;
                 digits.push(c);
@@ -767,6 +769,10 @@ mod tests {
         let actual = Currency::from_str("12.1").unwrap();
         assert_eq!(expected, actual);
 
+        let expected = Currency { symbol: None, coin: BigInt::from(-1210) };
+        let actual = Currency::from_str("(12.10)").unwrap();
+        assert_eq!(expected, actual);
+
         let expected = Currency { symbol: Some('$'), coin: BigInt::from(121000) };
         let actual = Currency::from_str("$1210").unwrap();
         assert_eq!(expected, actual);
@@ -789,10 +795,20 @@ mod tests {
         let actual = Currency::from_str("£12,000.99").unwrap();
         assert_eq!(expected, actual);
 
+        let expected = Currency { symbol: Some('$'), coin: BigInt::from(-1200099) };
+        let actual = Currency::from_str("-(-$-12,000.99").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("($12,000.99)").unwrap();
+        assert_eq!(expected, actual);
+
         let expected = Currency { symbol: Some('$'), coin: BigInt::from(-1210) };
         let actual = Currency::from_str("-$12.10").unwrap();
         assert_eq!(expected, actual);
         let actual = Currency::from_str("$-12.10").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("($12.10)").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("($12.1)").unwrap();
         assert_eq!(expected, actual);
 
         let expected = Currency { symbol: Some('€'), coin: BigInt::from(-12000) };
@@ -803,6 +819,8 @@ mod tests {
         let actual = Currency::from_str("-€-120.0").unwrap();
         assert_eq!(expected, actual);
         let actual = Currency::from_str("-€120").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("(€120)").unwrap();
         assert_eq!(expected, actual);
 
         let expected = Currency { symbol: Some('€'), coin: BigInt::from(0) };
@@ -819,6 +837,8 @@ mod tests {
         let actual = Currency::from_str("€000,000").unwrap();
         assert_eq!(expected, actual);
         let actual = Currency::from_str("€").unwrap();
+        assert_eq!(expected, actual);
+        let actual = Currency::from_str("€)10.99asdf").unwrap();
         assert_eq!(expected, actual);
 
         let expected = Currency { symbol: Some('$'), coin: BigInt::from(1000) };
