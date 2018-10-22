@@ -1,7 +1,7 @@
 [package]
 name = "currency"
 version = "0.4.0"
-authors = ["tberry@student.neumont.edu"]
+authors = ["tyler@berryac.com"]
 description = "A library for representing international currencies."
 repository = "https://github.com/Tahler/rust-lang-currency"
 documentation = "http://tahler.github.io/rust-lang-currency/currency/index.html"
