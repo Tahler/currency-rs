@@ -800,6 +800,8 @@ mod tests {
         assert_eq!(expected, actual);
         let actual = Currency::from_str("($12,000.99)").unwrap();
         assert_eq!(expected, actual);
+        let actual = Currency::from_str("$(12,000.99)").unwrap();
+        assert_eq!(expected, actual);
 
         let expected = Currency { symbol: Some('$'), coin: BigInt::from(-1210) };
         let actual = Currency::from_str("-$12.10").unwrap();
