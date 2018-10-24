@@ -779,8 +779,6 @@ mod tests {
 
     #[test]
     fn test_from_str() {
-        use std::str::FromStr;
-
         let expected = Currency { symbol: Some('$'), coin: BigInt::from(1210) };
         let actual = Currency::from_str("$12.10").unwrap();
         assert_eq!(expected, actual);
