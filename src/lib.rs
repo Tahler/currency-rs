@@ -54,7 +54,7 @@ use std::{ops, fmt, str, error};
 use num::bigint::{BigInt, BigUint, Sign};
 use num::Zero;
 use num::traits::FromPrimitive;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 const DECIMAL_PLACES: usize = 2;
 const SECTION_LEN: usize = 3; // 1,323.00 <- "323" is a section
@@ -763,6 +763,15 @@ impl<'de> Deserialize<'de> for Currency {
     }
 }
 
+impl Serialize for Currency {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Currency;
@@ -1069,6 +1078,19 @@ mod tests {
 
         let expected = HoldsCurrency { amount: Currency::from_str("-$12,000.99").unwrap() };
         let actual: HoldsCurrency = ::serde_json::from_str("{\"amount\": \"-$12,000.99\"}").unwrap();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_serialize() {
+        #[derive(Serialize)]
+        struct HoldsCurrency {
+            amount: Currency,
+        }
+
+        let data = HoldsCurrency { amount: Currency { symbol: Some('£'), coin: BigInt::from(-123400101) } };
+        let expected = String::from("{\"amount\":\"-£1,234,001.01\"}");
+        let actual = serde_json::to_string(&data).unwrap();
         assert_eq!(expected, actual);
     }
 }
