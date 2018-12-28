@@ -324,7 +324,11 @@ impl fmt::Display for Currency {
             let dec_digit_str = &digit_str[n_before_dec..n_digits];
 
             let first_section_len = n_before_dec % SECTION_LEN;
-            let mut counter = SECTION_LEN - first_section_len;
+            let mut counter = if first_section_len != 0 {
+                SECTION_LEN - first_section_len
+            } else {
+                0
+            };
             for digit in int_digit_str.chars() {
                 if counter == SECTION_LEN {
                     counter = 0;
@@ -1086,6 +1090,11 @@ mod tests {
         assert_eq!(
             Currency { symbol: "$".into(), coin: BigInt::from(1210) }.to_string(),
             "$12.10"
+        );
+
+        assert_eq!(
+            Currency { symbol: "".into(), coin: BigInt::from(10000) }.to_string(),
+            "100.00"
         );
 
         assert_eq!(
